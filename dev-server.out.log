@@ -1,0 +1,9 @@
+
+> dev
+> npx tsx watch src/server.ts
+
+Database connected
+Server is running on port 3000
+9:20:53 PM [tsx] change in ./src\app.ts Restarting...
+cDatabase connected
+Server is running on port 5000
