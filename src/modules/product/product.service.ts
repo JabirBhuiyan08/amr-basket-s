@@ -52,6 +52,8 @@ const getAllProducts = async (query: ProductQueryDTO) => {
     where.OR = [
       { name: { contains: search, mode: 'insensitive' } },
       { description: { contains: search, mode: 'insensitive' } },
+      { sku: { contains: search, mode: 'insensitive' } },
+      { id: { contains: search, mode: 'insensitive' } },
     ];
   }
 
