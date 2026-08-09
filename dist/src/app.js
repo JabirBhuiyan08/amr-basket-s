@@ -8,13 +8,14 @@ import { orderRouter } from "./modules/order/order.router";
 import { invoiceRouter } from "./modules/invoice/invoice.router";
 import { visitorRouter } from "./modules/visitor/visitor.router";
 import { settingsRouter } from "./modules/settings/settings.router";
+import { userRouter } from "./modules/user/user.router";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 const app = express();
 // Global middleware
 app.use((req, res, next) => {
     const origin = req.headers.origin;
-    const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3001,http://localhost:3000")
+    const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000,http://localhost:5000")
         .split(",")
         .map((value) => value.trim());
     if (origin && allowedOrigins.includes(origin)) {
@@ -44,6 +45,7 @@ app.use("/orders", orderRouter);
 app.use("/invoices", invoiceRouter);
 app.use("/visitors", visitorRouter);
 app.use("/settings", settingsRouter);
+app.use("/user", userRouter);
 // Health check
 app.get("/", (req, res) => {
     res.json({
@@ -58,7 +60,8 @@ app.get("/", (req, res) => {
             orders: "/orders",
             invoices: "/invoices",
             visitors: "/visitors",
-            settings: "/settings"
+            settings: "/settings",
+            user: "/user"
         }
     });
 });

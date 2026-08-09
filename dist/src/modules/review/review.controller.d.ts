@@ -8,6 +8,7 @@ export declare const reviewController: {
     updateReview: (req: Request, res: Response) => Promise<void>;
     deleteReview: (req: Request, res: Response) => Promise<void>;
     updateReviewStatus: (req: Request, res: Response) => Promise<void>;
+    replyReview: (req: Request, res: Response) => Promise<void>;
     markReviewHelpful: (req: Request, res: Response) => Promise<void>;
 };
 //# sourceMappingURL=review.controller.d.ts.map

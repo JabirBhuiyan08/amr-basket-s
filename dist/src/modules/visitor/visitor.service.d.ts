@@ -65,5 +65,15 @@ export declare const visitorService: {
             productId: string | null;
         }[];
     }>;
+    getProductAnalytics: () => Promise<{
+        productId: string;
+        name: string;
+        price: number;
+        image: string | null;
+        views: number;
+        cartAdditions: number;
+        orderedQuantity: number;
+        revenue: number;
+    }[]>;
 };
 //# sourceMappingURL=visitor.service.d.ts.map

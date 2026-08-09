@@ -17,6 +17,13 @@ const serializeOrder = (order: any) => {
         paymentStatus: order.paymentStatus,
         paymentMethod: order.paymentMethod,
         customerName: shippingAddress.fullName || shippingAddress.name || "Unknown",
+        userId: order.userId,
+        user: order.user ? {
+            id: order.user.id,
+            name: order.user.name,
+            email: order.user.email,
+            phone: order.user.phone,
+        } : null,
         deliveryLocation: shippingAddress,
         orderTime: order.createdAt,
         isDelivered: order.isDelivered,
@@ -25,6 +32,7 @@ const serializeOrder = (order: any) => {
             id: item.id,
             productId: item.productId,
             productName: item.product?.name || "Unknown",
+            sku: item.product?.sku || null,
             quantity: item.quantity,
             price: Number(item.price).toFixed(2),
             total: Number(item.total).toFixed(2),
@@ -54,6 +62,7 @@ const getOrders = async (req: Request, res: Response) => {
             data: orders.map(serializeOrder),
         });
     } catch (error: any) {
+        console.error("GET_ORDERS_ERROR:", error);
         res.status(error.statusCode || 500).json({
             success: false,
             error: error.message || "Something went wrong",
@@ -132,11 +141,40 @@ const updateOrderStatus = async (req: Request, res: Response) => {
     }
 };
 
+const updatePaymentStatus = async (req: Request, res: Response) => {
+    try {
+        const id = typeof req.params.id === "string" ? req.params.id : undefined;
+        const { paymentStatus } = req.body as { paymentStatus?: unknown };
+
+        if (!id) {
+            throw new AppError(400, "Order ID is required");
+        }
+
+        if (typeof paymentStatus !== "string" || !paymentStatus.trim()) {
+            throw new AppError(400, "Payment status is required");
+        }
+
+        const updatedOrder = await orderService.updatePaymentStatus(id, paymentStatus);
+
+        res.status(200).json({
+            success: true,
+            message: "Payment status updated successfully",
+            data: serializeOrder(updatedOrder),
+        });
+    } catch (error: any) {
+        res.status(error.statusCode || 500).json({
+            success: false,
+            error: error.message || "Something went wrong",
+        });
+    }
+};
+
 export const orderController = {
     getOrders,
     getAllOrders,
     getOrderById,
     updateOrderStatus,
+    updatePaymentStatus,
 };
 
 export default orderController;

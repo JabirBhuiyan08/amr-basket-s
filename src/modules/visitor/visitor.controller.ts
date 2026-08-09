@@ -89,11 +89,21 @@ const getVisitorAnalytics = async (req: Request, res: Response) => {
     }
 };
 
+const getProductAnalytics = async (req: Request, res: Response) => {
+    try {
+        const analytics = await visitorService.getProductAnalytics();
+        res.status(200).json({ success: true, data: analytics });
+    } catch (error: any) {
+        res.status(error.statusCode || 500).json({ success: false, error: error.message || "Something went wrong" });
+    }
+};
+
 export const visitorController = {
     trackPageView,
     trackProductView,
     trackCartActivity,
     getVisitorAnalytics,
+    getProductAnalytics,
 };
 
 export default visitorController;

@@ -4,7 +4,6 @@ export declare const reviewService: {
         data: ({
             product: {
                 name: string;
-                price: import("@prisma/client-runtime-utils").Decimal;
                 id: string;
                 images: {
                     createdAt: Date;
@@ -22,7 +21,11 @@ export declare const reviewService: {
                 imageUrl: string;
                 reviewId: string;
             }[];
-            user: never;
+            user: {
+                name: string;
+                id: string;
+                email: string;
+            };
         } & {
             createdAt: Date;
             updatedAt: Date;
@@ -33,6 +36,7 @@ export declare const reviewService: {
             title: string | null;
             comment: string | null;
             status: import("../../../generated/prisma/enums").ReviewStatus;
+            reply: string | null;
             helpful: number;
         })[];
         meta: {
@@ -45,7 +49,6 @@ export declare const reviewService: {
     getReviewById: (id: string) => Promise<({
         product: {
             name: string;
-            price: import("@prisma/client-runtime-utils").Decimal;
             id: string;
             description: string | null;
             images: {
@@ -64,7 +67,11 @@ export declare const reviewService: {
             imageUrl: string;
             reviewId: string;
         }[];
-        user: never;
+        user: {
+            name: string;
+            id: string;
+            email: string;
+        };
     } & {
         createdAt: Date;
         updatedAt: Date;
@@ -75,6 +82,7 @@ export declare const reviewService: {
         title: string | null;
         comment: string | null;
         status: import("../../../generated/prisma/enums").ReviewStatus;
+        reply: string | null;
         helpful: number;
     }) | null>;
     getReviewsByProduct: (productId: string, page?: number, limit?: number, status?: ReviewStatus) => Promise<{
@@ -85,7 +93,11 @@ export declare const reviewService: {
                 imageUrl: string;
                 reviewId: string;
             }[];
-            user: never;
+            user: {
+                name: string;
+                id: string;
+                email: string;
+            };
         } & {
             createdAt: Date;
             updatedAt: Date;
@@ -96,6 +108,7 @@ export declare const reviewService: {
             title: string | null;
             comment: string | null;
             status: import("../../../generated/prisma/enums").ReviewStatus;
+            reply: string | null;
             helpful: number;
         })[];
         meta: {
@@ -109,7 +122,6 @@ export declare const reviewService: {
     createReview: (data: CreateReviewDTO) => Promise<({
         product: {
             name: string;
-            price: import("@prisma/client-runtime-utils").Decimal;
             id: string;
         };
         images: {
@@ -118,7 +130,11 @@ export declare const reviewService: {
             imageUrl: string;
             reviewId: string;
         }[];
-        user: never;
+        user: {
+            name: string;
+            id: string;
+            email: string;
+        };
     } & {
         createdAt: Date;
         updatedAt: Date;
@@ -129,12 +145,12 @@ export declare const reviewService: {
         title: string | null;
         comment: string | null;
         status: import("../../../generated/prisma/enums").ReviewStatus;
+        reply: string | null;
         helpful: number;
     }) | null>;
     updateReview: (id: string, data: UpdateReviewDTO) => Promise<({
         product: {
             name: string;
-            price: import("@prisma/client-runtime-utils").Decimal;
             id: string;
         };
         images: {
@@ -143,7 +159,11 @@ export declare const reviewService: {
             imageUrl: string;
             reviewId: string;
         }[];
-        user: never;
+        user: {
+            name: string;
+            id: string;
+            email: string;
+        };
     } & {
         createdAt: Date;
         updatedAt: Date;
@@ -154,13 +174,13 @@ export declare const reviewService: {
         title: string | null;
         comment: string | null;
         status: import("../../../generated/prisma/enums").ReviewStatus;
+        reply: string | null;
         helpful: number;
     }) | null>;
     deleteReview: (id: string) => Promise<boolean>;
     updateReviewStatus: (id: string, status: ReviewStatus) => Promise<{
         product: {
             name: string;
-            price: import("@prisma/client-runtime-utils").Decimal;
             id: string;
         };
         images: {
@@ -169,7 +189,11 @@ export declare const reviewService: {
             imageUrl: string;
             reviewId: string;
         }[];
-        user: never;
+        user: {
+            name: string;
+            id: string;
+            email: string;
+        };
     } & {
         createdAt: Date;
         updatedAt: Date;
@@ -180,9 +204,39 @@ export declare const reviewService: {
         title: string | null;
         comment: string | null;
         status: import("../../../generated/prisma/enums").ReviewStatus;
+        reply: string | null;
         helpful: number;
     }>;
-    markReviewHelpful: (id: string) => Promise<{
+    replyReview: (id: string, reply: string) => Promise<{
+        product: {
+            name: string;
+            id: string;
+        };
+        images: {
+            createdAt: Date;
+            id: string;
+            imageUrl: string;
+            reviewId: string;
+        }[];
+        user: {
+            name: string;
+            id: string;
+            email: string;
+        };
+    } & {
+        createdAt: Date;
+        updatedAt: Date;
+        id: string;
+        productId: string;
+        userId: string;
+        rating: number;
+        title: string | null;
+        comment: string | null;
+        status: import("../../../generated/prisma/enums").ReviewStatus;
+        reply: string | null;
+        helpful: number;
+    }>;
+    markReviewHelpful: (reviewId: string, userId: string) => Promise<({
         images: {
             createdAt: Date;
             id: string;
@@ -199,7 +253,8 @@ export declare const reviewService: {
         title: string | null;
         comment: string | null;
         status: import("../../../generated/prisma/enums").ReviewStatus;
+        reply: string | null;
         helpful: number;
-    }>;
+    }) | null>;
 };
 //# sourceMappingURL=review.service.d.ts.map

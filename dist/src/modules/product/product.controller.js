@@ -40,6 +40,7 @@ const getProductById = async (req, res) => {
         });
     }
     catch (error) {
+        console.error('PRODUCT_CONTROLLER_ERROR:', error);
         handleError(error, res);
     }
 };
@@ -238,16 +239,16 @@ const updateProductSEO = async (req, res) => {
 };
 // Error handler
 const handleError = (error, res) => {
+    console.error('Product Controller Error:', error);
     if (error instanceof AppError) {
         return res.status(error.statusCode).json({
             success: false,
             error: error.message,
         });
     }
-    console.error('Product Controller Error:', error);
     return res.status(500).json({
         success: false,
-        error: 'Internal server error',
+        error: error?.message || 'Internal server error',
     });
 };
 export const productController = {

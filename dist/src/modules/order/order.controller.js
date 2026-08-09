@@ -14,6 +14,13 @@ const serializeOrder = (order) => {
         paymentStatus: order.paymentStatus,
         paymentMethod: order.paymentMethod,
         customerName: shippingAddress.fullName || shippingAddress.name || "Unknown",
+        userId: order.userId,
+        user: order.user ? {
+            id: order.user.id,
+            name: order.user.name,
+            email: order.user.email,
+            phone: order.user.phone,
+        } : null,
         deliveryLocation: shippingAddress,
         orderTime: order.createdAt,
         isDelivered: order.isDelivered,
@@ -22,6 +29,7 @@ const serializeOrder = (order) => {
             id: item.id,
             productId: item.productId,
             productName: item.product?.name || "Unknown",
+            sku: item.product?.sku || null,
             quantity: item.quantity,
             price: Number(item.price).toFixed(2),
             total: Number(item.total).toFixed(2),
@@ -49,6 +57,7 @@ const getOrders = async (req, res) => {
         });
     }
     catch (error) {
+        console.error("GET_ORDERS_ERROR:", error);
         res.status(error.statusCode || 500).json({
             success: false,
             error: error.message || "Something went wrong",
@@ -119,11 +128,36 @@ const updateOrderStatus = async (req, res) => {
         });
     }
 };
+const updatePaymentStatus = async (req, res) => {
+    try {
+        const id = typeof req.params.id === "string" ? req.params.id : undefined;
+        const { paymentStatus } = req.body;
+        if (!id) {
+            throw new AppError(400, "Order ID is required");
+        }
+        if (typeof paymentStatus !== "string" || !paymentStatus.trim()) {
+            throw new AppError(400, "Payment status is required");
+        }
+        const updatedOrder = await orderService.updatePaymentStatus(id, paymentStatus);
+        res.status(200).json({
+            success: true,
+            message: "Payment status updated successfully",
+            data: serializeOrder(updatedOrder),
+        });
+    }
+    catch (error) {
+        res.status(error.statusCode || 500).json({
+            success: false,
+            error: error.message || "Something went wrong",
+        });
+    }
+};
 export const orderController = {
     getOrders,
     getAllOrders,
     getOrderById,
     updateOrderStatus,
+    updatePaymentStatus,
 };
 export default orderController;
 //# sourceMappingURL=order.controller.js.map

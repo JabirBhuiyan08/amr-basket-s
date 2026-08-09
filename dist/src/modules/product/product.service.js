@@ -21,6 +21,8 @@ const getAllProducts = async (query) => {
         where.OR = [
             { name: { contains: search, mode: 'insensitive' } },
             { description: { contains: search, mode: 'insensitive' } },
+            { sku: { contains: search, mode: 'insensitive' } },
+            { id: { contains: search, mode: 'insensitive' } },
         ];
     }
     if (categoryId) {
@@ -105,61 +107,58 @@ const getAllProducts = async (query) => {
     };
 };
 const getProductById = async (id) => {
-    const product = await prisma.product.findUnique({
-        where: { id },
-        include: {
-            category: true,
-            images: {
-                orderBy: {
-                    order: 'asc',
+    try {
+        const product = await prisma.product.findUnique({
+            where: { id },
+            include: {
+                category: true,
+                images: {
+                    orderBy: {
+                        order: 'asc',
+                    },
                 },
-            },
-            seo: true,
-            reviews: {
-                where: {
-                    status: 'APPROVED',
-                },
-                include: {
-                    images: true,
-                },
-                orderBy: {
-                    createdAt: 'desc',
-                },
-            },
-            _count: {
-                select: {
-                    reviews: {
-                        where: {
-                            status: 'APPROVED',
-                        },
+                seo: true,
+                reviews: {
+                    where: {
+                        status: 'APPROVED',
+                    },
+                    include: {
+                        images: true,
+                    },
+                    orderBy: {
+                        createdAt: 'desc',
                     },
                 },
             },
-        },
-    });
-    if (!product) {
-        return null;
-    }
-    const reviews = product.reviews || [];
-    const totalReviews = reviews.length;
-    const averageRating = totalReviews > 0
-        ? reviews.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews
-        : 0;
-    const ratingDistribution = Array.from({ length: 5 }, (_, i) => {
-        const rating = i + 1;
-        const count = reviews.filter((r) => r.rating === rating).length;
+        });
+        if (!product) {
+            return null;
+        }
+        const reviews = product.reviews || [];
+        const totalReviews = reviews.length;
+        const averageRating = totalReviews > 0
+            ? reviews.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews
+            : 0;
+        const ratingDistribution = Array.from({ length: 5 }, (_, i) => {
+            const rating = i + 1;
+            const count = reviews.filter((r) => r.rating === rating).length;
+            return {
+                rating,
+                count,
+                percentage: totalReviews > 0 ? (count / totalReviews) * 100 : 0,
+            };
+        });
         return {
-            rating,
-            count,
-            percentage: totalReviews > 0 ? (count / totalReviews) * 100 : 0,
+            ...product,
+            averageRating,
+            totalReviews,
+            ratingDistribution,
         };
-    });
-    return {
-        ...product,
-        averageRating,
-        totalReviews,
-        ratingDistribution,
-    };
+    }
+    catch (error) {
+        console.error('getProductById error:', error);
+        throw error;
+    }
 };
 const getProductsByCategory = async (categoryId, page = 1, limit = 10) => {
     const skip = (page - 1) * limit;

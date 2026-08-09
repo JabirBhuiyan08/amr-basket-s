@@ -159,9 +159,65 @@ const getVisitorAnalytics = async () => {
     };
 };
 
+const getProductAnalytics = async () => {
+    const viewCounts = await prisma.pageView.groupBy({
+        by: ["productId"],
+        where: { productId: { not: null } },
+        _count: { productId: true },
+    });
+
+    const cartCounts = await prisma.pageView.groupBy({
+        by: ["productId"],
+        where: { productId: { not: null }, pageTitle: "ADD_TO_CART" },
+        _count: { productId: true },
+    });
+
+    const orderAgg = await prisma.orderItem.groupBy({
+        by: ["productId"],
+        _sum: { quantity: true, total: true },
+    });
+
+    const productIds = viewCounts.map((v) => v.productId as string);
+    const products = await prisma.product.findMany({
+        where: { id: { in: productIds } },
+        select: {
+            id: true,
+            name: true,
+            price: true,
+            images: { orderBy: { order: "asc" } },
+        },
+    });
+
+    const viewMap = new Map(viewCounts.map((v) => [v.productId as string, v._count.productId]));
+    const cartMap = new Map(cartCounts.map((v) => [v.productId as string, v._count.productId]));
+    const orderMap = new Map(
+        orderAgg.map((v) => [
+            v.productId,
+            {
+                quantity: Number(v._sum.quantity ?? 0),
+                total: Number(v._sum.total ?? 0),
+            },
+        ])
+    );
+
+    return products
+        .map((product) => ({
+            productId: product.id,
+            name: product.name,
+            price: Number(product.price),
+            image: product.images?.[0]?.imageUrl || null,
+            views: viewMap.get(product.id) ?? 0,
+            cartAdditions: cartMap.get(product.id) ?? 0,
+            orderedQuantity: orderMap.get(product.id)?.quantity ?? 0,
+            revenue: orderMap.get(product.id)?.total ?? 0,
+        }))
+        .sort((a, b) => b.views - a.views);
+};
+
 export const visitorService = {
     trackPageView,
     trackProductView,
     trackCartActivity,
     getVisitorAnalytics,
+    getProductAnalytics,
 };

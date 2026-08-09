@@ -1,4 +1,22 @@
 export declare const helpService: {
+    createPublicHelpRequest: (input: {
+        subject: string;
+        message: string;
+        phoneNumber?: string | undefined;
+        userName?: string | undefined;
+        orderId?: string | undefined;
+    }) => Promise<{
+        createdAt: Date;
+        updatedAt: Date;
+        id: string;
+        userId: string | null;
+        status: import("../../../generated/prisma/enums").HelpStatus;
+        subject: string;
+        message: string;
+        phoneNumber: string | null;
+        assignedTo: string | null;
+        resolvedAt: Date | null;
+    }>;
     createHelpRequest: (input: {
         userId: string;
         subject: string;
@@ -12,7 +30,7 @@ export declare const helpService: {
         createdAt: Date;
         updatedAt: Date;
         id: string;
-        userId: string;
+        userId: string | null;
         status: import("../../../generated/prisma/enums").HelpStatus;
         subject: string;
         message: string;
@@ -24,7 +42,7 @@ export declare const helpService: {
         createdAt: Date;
         updatedAt: Date;
         id: string;
-        userId: string;
+        userId: string | null;
         status: import("../../../generated/prisma/enums").HelpStatus;
         subject: string;
         message: string;
@@ -36,7 +54,7 @@ export declare const helpService: {
         createdAt: Date;
         updatedAt: Date;
         id: string;
-        userId: string;
+        userId: string | null;
         status: import("../../../generated/prisma/enums").HelpStatus;
         subject: string;
         message: string;
@@ -48,7 +66,7 @@ export declare const helpService: {
         createdAt: Date;
         updatedAt: Date;
         id: string;
-        userId: string;
+        userId: string | null;
         status: import("../../../generated/prisma/enums").HelpStatus;
         subject: string;
         message: string;

@@ -47,7 +47,6 @@ const getAllReviews = async (query) => {
                     select: {
                         id: true,
                         name: true,
-                        price: true,
                         images: {
                             where: { isPrimary: true },
                             take: 1,
@@ -90,7 +89,6 @@ const getReviewById = async (id) => {
                 select: {
                     id: true,
                     name: true,
-                    price: true,
                     description: true,
                     images: {
                         where: { isPrimary: true },
@@ -219,30 +217,33 @@ const createReview = async (data) => {
     if (rating < 1 || rating > 5) {
         throw new AppError(400, 'Rating must be between 1 and 5');
     }
-    // Check if user already reviewed this product (if userId is available)
-    // Note: You'll need to pass userId from authentication context
-    const createData = {
-        productId,
-        rating,
-        status: ReviewStatus.PENDING,
-    };
-    if (userId) {
-        createData.userId = userId;
+    if (!userId) {
+        throw new AppError(400, 'User ID is required to submit a review');
     }
-    // Add optional fields
-    if (title) {
-        createData.title = title;
-    }
-    if (comment) {
-        createData.comment = comment;
-    }
-    // Note: userId should come from authenticated user
-    // For now, we'll use a placeholder - you should implement auth properly
-    // createData.userId = userId;
     return prisma.$transaction(async (tx) => {
-        // Create the review
-        const review = await tx.review.create({
-            data: createData,
+        // Enforce one review per user per product using the unique constraint.
+        // If the user already has a review for this product, update it instead of creating a duplicate.
+        const review = await tx.review.upsert({
+            where: {
+                userId_productId: {
+                    userId,
+                    productId,
+                },
+            },
+            update: {
+                rating,
+                ...(title !== undefined ? { title } : {}),
+                ...(comment !== undefined ? { comment } : {}),
+                status: ReviewStatus.PENDING,
+            },
+            create: {
+                userId,
+                productId,
+                rating,
+                ...(title !== undefined ? { title } : {}),
+                ...(comment !== undefined ? { comment } : {}),
+                status: ReviewStatus.PENDING,
+            },
             include: {
                 images: true,
                 user: {
@@ -280,7 +281,6 @@ const createReview = async (data) => {
                     select: {
                         id: true,
                         name: true,
-                        price: true,
                     },
                 },
             },
@@ -289,7 +289,7 @@ const createReview = async (data) => {
 };
 // Update a review
 const updateReview = async (id, data) => {
-    const { rating, title, comment, status, images } = data;
+    const { rating, title, comment, status, reply, images } = data;
     // Check if review exists
     const existingReview = await prisma.review.findUnique({
         where: { id },
@@ -317,6 +317,9 @@ const updateReview = async (id, data) => {
         }
         if (status !== undefined) {
             updateData.status = status;
+        }
+        if (reply !== undefined) {
+            updateData.reply = reply;
         }
         // Update review
         if (Object.keys(updateData).length > 0) {
@@ -358,12 +361,41 @@ const updateReview = async (id, data) => {
                     select: {
                         id: true,
                         name: true,
-                        price: true,
                     },
                 },
             },
         });
     });
+};
+// Reply to a review (admin only)
+const replyReview = async (id, reply) => {
+    const review = await prisma.review.findUnique({
+        where: { id },
+    });
+    if (!review) {
+        throw new AppError(404, 'Review not found');
+    }
+    const updated = await prisma.review.update({
+        where: { id },
+        data: { reply: reply || null },
+        include: {
+            images: true,
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                },
+            },
+            product: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+        },
+    });
+    return updated;
 };
 // Delete a review
 const deleteReview = async (id) => {
@@ -402,22 +434,57 @@ const updateReviewStatus = async (id, status) => {
                 select: {
                     id: true,
                     name: true,
-                    price: true,
                 },
             },
         },
     });
 };
-// Mark review as helpful
-const markReviewHelpful = async (id) => {
+// Mark review as helpful (toggle like/unlike)
+const markReviewHelpful = async (reviewId, userId) => {
     const review = await prisma.review.findUnique({
-        where: { id },
+        where: { id: reviewId },
     });
     if (!review) {
         throw new AppError(404, 'Review not found');
     }
-    return prisma.review.update({
-        where: { id },
+    const existingLike = await prisma.reviewLike.findUnique({
+        where: {
+            userId_reviewId: {
+                userId,
+                reviewId,
+            },
+        },
+    });
+    if (existingLike) {
+        // Unlike: remove the like and decrement helpful count
+        await prisma.reviewLike.delete({
+            where: { id: existingLike.id },
+        });
+        await prisma.review.update({
+            where: { id: reviewId },
+            data: {
+                helpful: {
+                    decrement: 1,
+                },
+            },
+        });
+        const updated = await prisma.review.findUnique({
+            where: { id: reviewId },
+            include: {
+                images: true,
+            },
+        });
+        return updated;
+    }
+    // Like: create a like and increment helpful count
+    await prisma.reviewLike.create({
+        data: {
+            userId,
+            reviewId,
+        },
+    });
+    const updated = await prisma.review.update({
+        where: { id: reviewId },
         data: {
             helpful: {
                 increment: 1,
@@ -427,6 +494,7 @@ const markReviewHelpful = async (id) => {
             images: true,
         },
     });
+    return updated;
 };
 export const reviewService = {
     getAllReviews,
@@ -437,6 +505,7 @@ export const reviewService = {
     updateReview,
     deleteReview,
     updateReviewStatus,
+    replyReview,
     markReviewHelpful,
 };
 //# sourceMappingURL=review.service.js.map

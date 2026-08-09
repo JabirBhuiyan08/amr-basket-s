@@ -100,7 +100,11 @@ const getCart = async (req, res) => {
     const cartItems = await prisma.cartItem.findMany({
         where: { userId: cartUserId },
         include: {
-            product: true,
+            product: {
+                include: {
+                    images: true,
+                },
+            },
         },
         orderBy: { createdAt: "desc" },
     });
@@ -182,8 +186,7 @@ const checkout = async (req, res) => {
         return total + price * item.quantity;
     }, 0);
     const shippingCost = 50;
-    const tax = subtotal * 0.1;
-    const totalAmount = subtotal + shippingCost + tax;
+    const totalAmount = subtotal + shippingCost;
     const order = await prisma.$transaction(async (tx) => {
         const createdOrder = await tx.order.create({
             data: {
@@ -191,7 +194,7 @@ const checkout = async (req, res) => {
                 orderNumber: `ORD-${Date.now()}`,
                 subtotal: subtotal.toFixed(2),
                 shippingCost: shippingCost.toFixed(2),
-                tax: tax.toFixed(2),
+                tax: "0.00",
                 totalAmount: totalAmount.toFixed(2),
                 shippingAddress: normalizedAddress,
                 billingAddress: billingAddress ? normalizeAddress(billingAddress) : normalizedAddress,

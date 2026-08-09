@@ -228,6 +228,17 @@ export interface PrismaClient<in LogOpts extends Prisma.LogLevel = never, in out
         omit: OmitOpts;
     }>;
     /**
+     * `prisma.reviewLike`: Exposes CRUD operations for the **ReviewLike** model.
+      * Example usage:
+      * ```ts
+      * // Fetch zero or more ReviewLikes
+      * const reviewLikes = await prisma.reviewLike.findMany()
+      * ```
+      */
+    get reviewLike(): Prisma.ReviewLikeDelegate<ExtArgs, {
+        omit: OmitOpts;
+    }>;
+    /**
      * `prisma.helpRequest`: Exposes CRUD operations for the **HelpRequest** model.
       * Example usage:
       * ```ts

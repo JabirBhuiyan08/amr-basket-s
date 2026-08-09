@@ -14,6 +14,7 @@ export interface UpdateReviewDTO {
   title?: string;
   comment?: string;
   status?: ReviewStatus;
+  reply?: string;
   images?: Array<{
     imageUrl: string;
   }>;

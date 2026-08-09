@@ -1,6 +1,31 @@
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/app-error";
 
+const createPublicHelpRequest = async (input: {
+    subject: string;
+    message: string;
+    phoneNumber?: string | undefined;
+    userName?: string | undefined;
+    orderId?: string | undefined;
+}) => {
+    if (!input.subject?.trim()) {
+        throw new AppError(400, "Subject is required");
+    }
+
+    if (!input.message?.trim()) {
+        throw new AppError(400, "Message is required");
+    }
+
+    return prisma.helpRequest.create({
+        data: {
+            subject: input.subject.trim(),
+            message: input.message.trim(),
+            phoneNumber: input.phoneNumber?.trim() || null,
+            status: "OPEN",
+        },
+    });
+};
+
 const createHelpRequest = async (input: {
     userId: string;
     subject: string;
@@ -67,6 +92,7 @@ const updateHelpRequestStatus = async (id: string, status: string) => {
 };
 
 export const helpService = {
+    createPublicHelpRequest,
     createHelpRequest,
     getAllHelpRequests,
     getHelpRequestById,

@@ -53,11 +53,21 @@ const getVisitorAnalytics = async (req, res) => {
         res.status(error.statusCode || 500).json({ success: false, error: error.message || "Something went wrong" });
     }
 };
+const getProductAnalytics = async (req, res) => {
+    try {
+        const analytics = await visitorService.getProductAnalytics();
+        res.status(200).json({ success: true, data: analytics });
+    }
+    catch (error) {
+        res.status(error.statusCode || 500).json({ success: false, error: error.message || "Something went wrong" });
+    }
+};
 export const visitorController = {
     trackPageView,
     trackProductView,
     trackCartActivity,
     getVisitorAnalytics,
+    getProductAnalytics,
 };
 export default visitorController;
 //# sourceMappingURL=visitor.controller.js.map

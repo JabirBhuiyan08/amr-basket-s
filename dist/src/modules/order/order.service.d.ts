@@ -227,5 +227,26 @@ export declare const orderService: {
         paymentStatus: import("../../../generated/prisma/enums").PaymentStatus;
         invoiceNumber: string | null;
     }>;
+    updatePaymentStatus: (id: string, paymentStatus: string) => Promise<{
+        createdAt: Date;
+        updatedAt: Date;
+        id: string;
+        userId: string;
+        status: import("../../../generated/prisma/enums").OrderStatus;
+        shippingAddress: import("@prisma/client/runtime/client").JsonValue;
+        billingAddress: import("@prisma/client/runtime/client").JsonValue | null;
+        paymentMethod: string | null;
+        notes: string | null;
+        orderNumber: string;
+        totalAmount: import("@prisma/client-runtime-utils").Decimal;
+        subtotal: import("@prisma/client-runtime-utils").Decimal;
+        tax: import("@prisma/client-runtime-utils").Decimal | null;
+        shippingCost: import("@prisma/client-runtime-utils").Decimal | null;
+        discountTotal: import("@prisma/client-runtime-utils").Decimal | null;
+        isDelivered: boolean;
+        deliveredAt: Date | null;
+        paymentStatus: import("../../../generated/prisma/enums").PaymentStatus;
+        invoiceNumber: string | null;
+    }>;
 };
 //# sourceMappingURL=order.service.d.ts.map

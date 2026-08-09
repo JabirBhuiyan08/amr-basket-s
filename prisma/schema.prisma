@@ -99,6 +99,7 @@ model Category {
 model Order {
   id              String        @id @default(cuid())
   userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   orderNumber     String        @unique
   status          OrderStatus   @default(PENDING)
   totalAmount     Decimal       @db.Decimal(10, 2)
@@ -188,17 +189,21 @@ model WishlistItem {
 model Review {
   id        String        @id @default(cuid())
   userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId String
   product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   rating    Int
   title     String?
   comment   String?
   status    ReviewStatus  @default(PENDING)
+  reply     String?
   images    ReviewImage[]
+  likes     ReviewLike[]
   helpful   Int           @default(0)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
+  @@unique([userId, productId])
   @@map("reviews")
 }
 
@@ -221,11 +226,25 @@ model ReviewImage {
   @@map("review_images")
 }
 
+// Review Likes
+
+model ReviewLike {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, reviewId])
+  @@map("review_likes")
+}
+
 // Help and Support
 
 model HelpRequest {
   id          String     @id @default(cuid())
-  userId      String
+  userId      String?
   subject     String
   message     String
   phoneNumber String?
@@ -330,6 +349,9 @@ model User {
   status        String?   @default("ACTIVE")
   sessions      Session[]
   accounts      Account[]
+  reviews       Review[]
+  reviewLikes   ReviewLike[]
+  orders        Order[]
 
   @@unique([email])
   @@map("user")

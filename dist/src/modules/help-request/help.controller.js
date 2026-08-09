@@ -1,5 +1,39 @@
 import { helpService } from "./help.service";
 import { AppError } from "../../utils/app-error";
+const createPublicHelpRequest = async (req, res) => {
+    try {
+        const { name, phoneNumber, orderId, subject, message } = req.body;
+        if (!name?.trim()) {
+            throw new AppError(400, "Name is required");
+        }
+        if (!phoneNumber?.trim()) {
+            throw new AppError(400, "Phone number is required");
+        }
+        if (!subject?.trim() && !message?.trim()) {
+            throw new AppError(400, "Subject or message is required");
+        }
+        const finalSubject = subject?.trim() || "Customer Support Request";
+        const finalMessage = message?.trim() || `Order ID: ${orderId || "N/A"}\n\nCustomer: ${name}\nPhone: ${phoneNumber}`;
+        const request = await helpService.createPublicHelpRequest({
+            subject: finalSubject,
+            message: finalMessage,
+            phoneNumber: phoneNumber?.trim(),
+            userName: name?.trim(),
+            orderId: orderId?.trim(),
+        });
+        res.status(201).json({
+            success: true,
+            message: "Help request submitted successfully",
+            data: request,
+        });
+    }
+    catch (error) {
+        res.status(error.statusCode || 500).json({
+            success: false,
+            error: error.message || "Something went wrong",
+        });
+    }
+};
 const createHelpRequest = async (req, res) => {
     try {
         const { subject, message, phoneNumber, productName, productId, userName, address } = req.body;
@@ -80,6 +114,7 @@ const updateHelpRequestStatus = async (req, res) => {
     }
 };
 export const helpController = {
+    createPublicHelpRequest,
     createHelpRequest,
     getAllHelpRequests,
     getHelpRequestById,

@@ -149,7 +149,7 @@ export type HelpRequestGroupByArgs<ExtArgs extends runtime.Types.Extensions.Inte
 };
 export type HelpRequestGroupByOutputType = {
     id: string;
-    userId: string;
+    userId: string | null;
     subject: string;
     message: string;
     phoneNumber: string | null;
@@ -170,7 +170,7 @@ export type HelpRequestWhereInput = {
     OR?: Prisma.HelpRequestWhereInput[];
     NOT?: Prisma.HelpRequestWhereInput | Prisma.HelpRequestWhereInput[];
     id?: Prisma.StringFilter<"HelpRequest"> | string;
-    userId?: Prisma.StringFilter<"HelpRequest"> | string;
+    userId?: Prisma.StringNullableFilter<"HelpRequest"> | string | null;
     subject?: Prisma.StringFilter<"HelpRequest"> | string;
     message?: Prisma.StringFilter<"HelpRequest"> | string;
     phoneNumber?: Prisma.StringNullableFilter<"HelpRequest"> | string | null;
@@ -182,7 +182,7 @@ export type HelpRequestWhereInput = {
 };
 export type HelpRequestOrderByWithRelationInput = {
     id?: Prisma.SortOrder;
-    userId?: Prisma.SortOrder;
+    userId?: Prisma.SortOrderInput | Prisma.SortOrder;
     subject?: Prisma.SortOrder;
     message?: Prisma.SortOrder;
     phoneNumber?: Prisma.SortOrderInput | Prisma.SortOrder;
@@ -197,7 +197,7 @@ export type HelpRequestWhereUniqueInput = Prisma.AtLeast<{
     AND?: Prisma.HelpRequestWhereInput | Prisma.HelpRequestWhereInput[];
     OR?: Prisma.HelpRequestWhereInput[];
     NOT?: Prisma.HelpRequestWhereInput | Prisma.HelpRequestWhereInput[];
-    userId?: Prisma.StringFilter<"HelpRequest"> | string;
+    userId?: Prisma.StringNullableFilter<"HelpRequest"> | string | null;
     subject?: Prisma.StringFilter<"HelpRequest"> | string;
     message?: Prisma.StringFilter<"HelpRequest"> | string;
     phoneNumber?: Prisma.StringNullableFilter<"HelpRequest"> | string | null;
@@ -209,7 +209,7 @@ export type HelpRequestWhereUniqueInput = Prisma.AtLeast<{
 }, "id">;
 export type HelpRequestOrderByWithAggregationInput = {
     id?: Prisma.SortOrder;
-    userId?: Prisma.SortOrder;
+    userId?: Prisma.SortOrderInput | Prisma.SortOrder;
     subject?: Prisma.SortOrder;
     message?: Prisma.SortOrder;
     phoneNumber?: Prisma.SortOrderInput | Prisma.SortOrder;
@@ -227,7 +227,7 @@ export type HelpRequestScalarWhereWithAggregatesInput = {
     OR?: Prisma.HelpRequestScalarWhereWithAggregatesInput[];
     NOT?: Prisma.HelpRequestScalarWhereWithAggregatesInput | Prisma.HelpRequestScalarWhereWithAggregatesInput[];
     id?: Prisma.StringWithAggregatesFilter<"HelpRequest"> | string;
-    userId?: Prisma.StringWithAggregatesFilter<"HelpRequest"> | string;
+    userId?: Prisma.StringNullableWithAggregatesFilter<"HelpRequest"> | string | null;
     subject?: Prisma.StringWithAggregatesFilter<"HelpRequest"> | string;
     message?: Prisma.StringWithAggregatesFilter<"HelpRequest"> | string;
     phoneNumber?: Prisma.StringNullableWithAggregatesFilter<"HelpRequest"> | string | null;
@@ -239,7 +239,7 @@ export type HelpRequestScalarWhereWithAggregatesInput = {
 };
 export type HelpRequestCreateInput = {
     id?: string;
-    userId: string;
+    userId?: string | null;
     subject: string;
     message: string;
     phoneNumber?: string | null;
@@ -251,7 +251,7 @@ export type HelpRequestCreateInput = {
 };
 export type HelpRequestUncheckedCreateInput = {
     id?: string;
-    userId: string;
+    userId?: string | null;
     subject: string;
     message: string;
     phoneNumber?: string | null;
@@ -263,7 +263,7 @@ export type HelpRequestUncheckedCreateInput = {
 };
 export type HelpRequestUpdateInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
-    userId?: Prisma.StringFieldUpdateOperationsInput | string;
+    userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     subject?: Prisma.StringFieldUpdateOperationsInput | string;
     message?: Prisma.StringFieldUpdateOperationsInput | string;
     phoneNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -275,7 +275,7 @@ export type HelpRequestUpdateInput = {
 };
 export type HelpRequestUncheckedUpdateInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
-    userId?: Prisma.StringFieldUpdateOperationsInput | string;
+    userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     subject?: Prisma.StringFieldUpdateOperationsInput | string;
     message?: Prisma.StringFieldUpdateOperationsInput | string;
     phoneNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -287,7 +287,7 @@ export type HelpRequestUncheckedUpdateInput = {
 };
 export type HelpRequestCreateManyInput = {
     id?: string;
-    userId: string;
+    userId?: string | null;
     subject: string;
     message: string;
     phoneNumber?: string | null;
@@ -299,7 +299,7 @@ export type HelpRequestCreateManyInput = {
 };
 export type HelpRequestUpdateManyMutationInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
-    userId?: Prisma.StringFieldUpdateOperationsInput | string;
+    userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     subject?: Prisma.StringFieldUpdateOperationsInput | string;
     message?: Prisma.StringFieldUpdateOperationsInput | string;
     phoneNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -311,7 +311,7 @@ export type HelpRequestUpdateManyMutationInput = {
 };
 export type HelpRequestUncheckedUpdateManyInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
-    userId?: Prisma.StringFieldUpdateOperationsInput | string;
+    userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     subject?: Prisma.StringFieldUpdateOperationsInput | string;
     message?: Prisma.StringFieldUpdateOperationsInput | string;
     phoneNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -414,7 +414,7 @@ export type $HelpRequestPayload<ExtArgs extends runtime.Types.Extensions.Interna
     objects: {};
     scalars: runtime.Types.Extensions.GetPayloadResult<{
         id: string;
-        userId: string;
+        userId: string | null;
         subject: string;
         message: string;
         phoneNumber: string | null;

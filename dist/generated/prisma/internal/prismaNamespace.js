@@ -77,6 +77,7 @@ export const ModelName = {
     WishlistItem: 'WishlistItem',
     Review: 'Review',
     ReviewImage: 'ReviewImage',
+    ReviewLike: 'ReviewLike',
     HelpRequest: 'HelpRequest',
     Visitor: 'Visitor',
     PageView: 'PageView',
@@ -197,6 +198,7 @@ export const ReviewScalarFieldEnum = {
     title: 'title',
     comment: 'comment',
     status: 'status',
+    reply: 'reply',
     helpful: 'helpful',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
@@ -205,6 +207,12 @@ export const ReviewImageScalarFieldEnum = {
     id: 'id',
     reviewId: 'reviewId',
     imageUrl: 'imageUrl',
+    createdAt: 'createdAt'
+};
+export const ReviewLikeScalarFieldEnum = {
+    id: 'id',
+    userId: 'userId',
+    reviewId: 'reviewId',
     createdAt: 'createdAt'
 };
 export const HelpRequestScalarFieldEnum = {

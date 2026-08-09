@@ -42,6 +42,20 @@ const getInvoiceByOrderId = async (orderId) => {
         },
     });
 };
+const getInvoiceByInvoiceNumber = async (invoiceNumber) => {
+    return prisma.invoice.findUnique({
+        where: { invoiceNumber },
+        include: {
+            order: {
+                include: {
+                    items: {
+                        include: { product: true },
+                    },
+                },
+            },
+        },
+    });
+};
 const getInvoiceById = async (id) => {
     return prisma.invoice.findUnique({
         where: { id },
@@ -60,5 +74,6 @@ export const invoiceService = {
     createInvoiceForOrder,
     getInvoiceByOrderId,
     getInvoiceById,
+    getInvoiceByInvoiceNumber,
 };
 //# sourceMappingURL=invoice.service.js.map

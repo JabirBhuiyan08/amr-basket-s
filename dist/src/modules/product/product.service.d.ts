@@ -65,11 +65,9 @@ export declare const productService: {
             title: string | null;
             comment: string | null;
             status: import("../../../generated/prisma/enums").ReviewStatus;
+            reply: string | null;
             helpful: number;
         })[];
-        _count: {
-            reviews: number;
-        };
         name: string;
         price: import("@prisma/client-runtime-utils").Decimal;
         discountPrice: import("@prisma/client-runtime-utils").Decimal | null;

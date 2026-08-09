@@ -72,6 +72,11 @@ export type Review = Prisma.ReviewModel;
  */
 export type ReviewImage = Prisma.ReviewImageModel;
 /**
+ * Model ReviewLike
+ *
+ */
+export type ReviewLike = Prisma.ReviewLikeModel;
+/**
  * Model HelpRequest
  *
  */

@@ -8,6 +8,7 @@ export type * from './models/CartItem';
 export type * from './models/WishlistItem';
 export type * from './models/Review';
 export type * from './models/ReviewImage';
+export type * from './models/ReviewLike';
 export type * from './models/HelpRequest';
 export type * from './models/Visitor';
 export type * from './models/PageView';

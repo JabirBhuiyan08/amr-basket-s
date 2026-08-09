@@ -258,14 +258,39 @@ const markReviewHelpful = async (req, res) => {
         if (!id) {
             throw new AppError(400, 'Review ID is required');
         }
-        const review = await reviewService.markReviewHelpful(id);
+        if (!req.user?.id) {
+            throw new AppError(401, 'Please log in to mark review as helpful');
+        }
+        const review = await reviewService.markReviewHelpful(id, req.user.id);
         if (!review) {
             throw new AppError(404, 'Review not found');
         }
         res.status(200).json({
             success: true,
             data: review,
-            message: 'Review marked as helpful',
+            message: 'Review helpful toggled',
+        });
+    }
+    catch (error) {
+        handleError(error, res);
+    }
+};
+// Reply to a review (admin only)
+const replyReview = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reply } = req.body;
+        if (!id) {
+            throw new AppError(400, 'Review ID is required');
+        }
+        if (typeof reply !== 'string') {
+            throw new AppError(400, 'Reply is required');
+        }
+        const review = await reviewService.replyReview(id, reply);
+        res.status(200).json({
+            success: true,
+            data: review,
+            message: 'Reply saved successfully',
         });
     }
     catch (error) {
@@ -281,6 +306,7 @@ export const reviewController = {
     updateReview,
     deleteReview,
     updateReviewStatus,
+    replyReview,
     markReviewHelpful,
 };
 //# sourceMappingURL=review.controller.js.map

@@ -23,44 +23,108 @@ const getOrdersForUser = async (userId) => {
     });
 };
 const getAllOrders = async () => {
-    return prisma.order.findMany({
-        include: {
-            invoice: true,
-            items: {
-                include: {
-                    product: {
-                        include: {
-                            images: {
-                                orderBy: { order: "asc" },
+    try {
+        return await prisma.order.findMany({
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                    },
+                },
+                invoice: true,
+                items: {
+                    include: {
+                        product: {
+                            include: {
+                                images: {
+                                    orderBy: { order: "asc" },
+                                },
                             },
                         },
                     },
+                    orderBy: { createdAt: "asc" },
                 },
-                orderBy: { createdAt: "asc" },
             },
-        },
-        orderBy: { createdAt: "desc" },
-    });
+            orderBy: { createdAt: "desc" },
+        });
+    }
+    catch (error) {
+        console.error("getAllOrders error:", error);
+        // Fallback: return orders without user relation if it fails
+        return prisma.order.findMany({
+            include: {
+                invoice: true,
+                items: {
+                    include: {
+                        product: {
+                            include: {
+                                images: {
+                                    orderBy: { order: "asc" },
+                                },
+                            },
+                        },
+                    },
+                    orderBy: { createdAt: "asc" },
+                },
+            },
+            orderBy: { createdAt: "desc" },
+        });
+    }
 };
 const getOrderById = async (id) => {
-    return prisma.order.findUnique({
-        where: { id },
-        include: {
-            invoice: true,
-            items: {
-                include: {
-                    product: {
-                        include: {
-                            images: {
-                                orderBy: { order: "asc" },
+    try {
+        return await prisma.order.findUnique({
+            where: { id },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                    },
+                },
+                invoice: true,
+                items: {
+                    include: {
+                        product: {
+                            include: {
+                                images: {
+                                    orderBy: { order: "asc" },
+                                },
                             },
                         },
                     },
+                    orderBy: { createdAt: "asc" },
                 },
-                orderBy: { createdAt: "asc" },
             },
-        },
-    });
+        });
+    }
+    catch (error) {
+        console.error("getOrderById error:", error);
+        // Fallback: return order without user relation if it fails
+        return prisma.order.findUnique({
+            where: { id },
+            include: {
+                invoice: true,
+                items: {
+                    include: {
+                        product: {
+                            include: {
+                                images: {
+                                    orderBy: { order: "asc" },
+                                },
+                            },
+                        },
+                    },
+                    orderBy: { createdAt: "asc" },
+                },
+            },
+        });
+    }
 };
 const normalizeStatus = (status) => {
     const input = status.toUpperCase();
@@ -105,10 +169,26 @@ const updateOrderStatus = async (id, status) => {
     }
     return updatedOrder;
 };
+const updatePaymentStatus = async (id, paymentStatus) => {
+    const normalized = paymentStatus.toUpperCase();
+    const valid = ["PENDING", "PAID", "FAILED", "REFUNDED"];
+    if (!valid.includes(normalized)) {
+        throw new AppError(400, "Invalid payment status");
+    }
+    const existingOrder = await prisma.order.findUnique({ where: { id } });
+    if (!existingOrder) {
+        throw new AppError(404, "Order not found");
+    }
+    return prisma.order.update({
+        where: { id },
+        data: { paymentStatus: normalized },
+    });
+};
 export const orderService = {
     getOrdersForUser,
     getAllOrders,
     getOrderById,
     updateOrderStatus,
+    updatePaymentStatus,
 };
 //# sourceMappingURL=order.service.js.map

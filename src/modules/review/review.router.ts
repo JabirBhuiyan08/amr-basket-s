@@ -6,8 +6,8 @@ const router = Router();
 
 // Public routes (no authentication required)
 router.get('/', reviewController.getAllReviews);
-router.get('/product/:productId', reviewController.getReviewsByProduct);
 router.get('/product/stats/:productId', reviewController.getReviewStats);
+router.get('/product/:productId', reviewController.getReviewsByProduct);
 router.get('/:id', reviewController.getReviewById);
 
 // Authenticated user routes
@@ -17,6 +17,7 @@ router.delete('/:id', auth(), reviewController.deleteReview);
 
 // Admin routes
 router.patch('/status/:id', auth(UserRole.ADMIN), reviewController.updateReviewStatus);
+router.patch('/reply/:id', auth(UserRole.ADMIN), reviewController.replyReview);
 router.patch('/helpful/:id', auth(), reviewController.markReviewHelpful);
 
 export const reviewRouter = router;
