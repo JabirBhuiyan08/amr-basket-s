@@ -494,28 +494,146 @@ const createProduct = async (data: CreateProductDTO) => {
 };
 
 const updateProduct = async (id: string, data: UpdateProductDTO) => {
-  const { seo, categoryId, sku, ...productData } = data;
+  const { seo, categoryId, sku, images, ...productData } = data;
 
   const existingProduct = await prisma.product.findUnique({
     where: { id },
+    include: {
+      images: true,
+      seo: true,
+    },
   });
 
   if (!existingProduct) {
     throw new AppError(404, 'Product not found');
   }
 
-  // If updating SKU, check if it's already taken
-  if (sku && sku !== existingProduct.sku ) {
+  // If updating SKU, check if it's already taken by another product
+  if (sku && sku !== existingProduct.sku) {
     const productWithSameSku = await prisma.product.findUnique({
-      where: { sku: sku }
+      where: { sku },
     });
-    
+
     if (productWithSameSku) {
       throw new AppError(400, 'SKU already exists');
     }
   }
 
-  // ... rest of your update logic with sku included
+  let discountPrice: number | null = existingProduct.discountPrice ? existingProduct.discountPrice.toNumber() : null;
+  if (productData.discount !== undefined) {
+    const price = productData.price ?? existingProduct.price;
+    if (productData.discount > 0) {
+      discountPrice = Number(price) * (1 - productData.discount / 100);
+    } else {
+      discountPrice = null;
+    }
+  }
+
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Update product fields
+    const updateData: Prisma.ProductUpdateInput = {};
+
+    if (productData.name !== undefined) updateData.name = productData.name;
+    if (productData.price !== undefined) updateData.price = productData.price;
+    if (productData.description !== undefined) updateData.description = productData.description;
+    if (productData.discount !== undefined) updateData.discount = productData.discount;
+    if (discountPrice !== existingProduct.discountPrice) updateData.discountPrice = discountPrice;
+    if (productData.stockQuantity !== undefined) updateData.stockQuantity = productData.stockQuantity;
+    if (productData.inStock !== undefined) updateData.inStock = productData.inStock;
+    if (productData.metaTitle !== undefined) updateData.metaTitle = productData.metaTitle;
+    if (productData.metaDescription !== undefined) updateData.metaDescription = productData.metaDescription;
+    if (productData.metaKeywords !== undefined) updateData.metaKeywords = productData.metaKeywords;
+    if (sku !== undefined) updateData.sku = sku;
+
+    if (categoryId !== undefined) {
+      if (categoryId) {
+        updateData.category = { connect: { id: categoryId } };
+      } else {
+        updateData.category = { disconnect: true };
+      }
+    }
+
+    const updatedProduct = await tx.product.update({
+      where: { id },
+      data: updateData,
+      include: {
+        category: true,
+        images: true,
+        seo: true,
+      },
+    });
+
+    // Update images if provided
+    if (images !== undefined) {
+      await tx.productImage.deleteMany({
+        where: { productId: id },
+      });
+
+      if (images.length > 0) {
+        const imageData = images.map((img, index) => {
+          const data: any = {
+            productId: id,
+            imageUrl: img.imageUrl,
+            isPrimary: img.isPrimary || index === 0,
+            order: index,
+          };
+
+          if (img.altText && img.altText.trim() !== '') {
+            data.altText = img.altText;
+          }
+
+          return data;
+        });
+
+        await tx.productImage.createMany({
+          data: imageData,
+        });
+      }
+    }
+
+    // Update or create SEO
+    if (seo) {
+      const slug = seo.slug || existingProduct.seo?.slug || existingProduct.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      if (existingProduct.seo) {
+        const seoUpdateData: any = { slug };
+        if (seo.metaTitle !== undefined) seoUpdateData.metaTitle = seo.metaTitle;
+        if (seo.metaDescription !== undefined) seoUpdateData.metaDescription = seo.metaDescription;
+        if (seo.metaKeywords !== undefined) seoUpdateData.metaKeywords = seo.metaKeywords;
+
+        await tx.productSEO.update({
+          where: { id: existingProduct.seo.id },
+          data: seoUpdateData,
+        });
+      } else {
+        const seoCreateData: any = {
+          productId: id,
+          slug,
+        };
+        if (seo.metaTitle !== undefined) seoCreateData.metaTitle = seo.metaTitle;
+        if (seo.metaDescription !== undefined) seoCreateData.metaDescription = seo.metaDescription;
+        if (seo.metaKeywords !== undefined) seoCreateData.metaKeywords = seo.metaKeywords;
+
+        await tx.productSEO.create({
+          data: seoCreateData,
+        });
+      }
+    }
+
+    // Return the complete updated product
+    return tx.product.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        images: {
+          orderBy: {
+            order: 'asc',
+          },
+        },
+        seo: true,
+      },
+    });
+  });
 };
 
 const deleteProduct = async (id: string) => {

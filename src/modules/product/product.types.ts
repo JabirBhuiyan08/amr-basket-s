@@ -32,7 +32,7 @@ export interface UpdateProductDTO {
   inStock?: boolean;
   stockQuantity?: number;
   categoryId?: string;
-  sku?: string; // Add this
+  sku?: string;
   metaTitle?: string;
   metaDescription?: string;
   metaKeywords?: string;
@@ -42,6 +42,11 @@ export interface UpdateProductDTO {
     metaKeywords?: string;
     slug?: string;
   };
+  images?: Array<{
+    imageUrl: string;
+    altText?: string;
+    isPrimary?: boolean;
+  }>;
 }
 
 export interface ProductQueryDTO {
