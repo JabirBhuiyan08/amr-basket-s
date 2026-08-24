@@ -9,6 +9,7 @@ import { invoiceRouter } from "./modules/invoice/invoice.router";
 import { visitorRouter } from "./modules/visitor/visitor.router";
 import { settingsRouter } from "./modules/settings/settings.router";
 import { userRouter } from "./modules/user/user.router";
+import { authRouter } from "./modules/auth/auth.router";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 
@@ -37,11 +38,14 @@ app.use((req, res, next) => {
 
     next();
 });
+
+// Better Auth handler - Express v5 catch-all syntax
+app.all("/api/auth/{*any}", toNodeHandler(auth));
+
+// Body parsing middleware - mount AFTER the Better Auth handler (so it does not
+// consume the raw body Better Auth needs) but BEFORE the API routers.
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Better Auth handler - Remove the /* wildcard
-app.use("/api/auth/*splat", toNodeHandler(auth));
 
 // API routes
 app.use("/product", productRouter);
@@ -54,8 +58,8 @@ app.use("/invoices", invoiceRouter);
 app.use("/visitors", visitorRouter);
 app.use("/settings", settingsRouter);
 app.use("/user", userRouter);
+app.use("/auth", authRouter);
 
-// Health check
 app.get("/", (req, res) => {
     res.json({
         message: "Hello World!",
@@ -70,7 +74,8 @@ app.get("/", (req, res) => {
             invoices: "/invoices",
             visitors: "/visitors",
             settings: "/settings",
-            user: "/user"
+            user: "/user",
+            customAuth: "/auth"
         }
     });
 });

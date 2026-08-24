@@ -191,10 +191,37 @@ const updatePaymentStatus = async (id: string, paymentStatus: string) => {
     });
 };
 
+const getTotalSales = async () => {
+    const result = await prisma.order.aggregate({
+        where: {
+            status: {
+                not: "CANCELLED",
+            },
+            paymentStatus: {
+                not: "FAILED",
+            },
+        },
+        _sum: {
+            totalAmount: true,
+        },
+    });
+
+    return {
+        totalSales: Number(result._sum.totalAmount || 0),
+        orderCount: await prisma.order.count({
+            where: {
+                status: { not: "CANCELLED" },
+                paymentStatus: { not: "FAILED" },
+            },
+        }),
+    };
+};
+
 export const orderService = {
     getOrdersForUser,
     getAllOrders,
     getOrderById,
     updateOrderStatus,
     updatePaymentStatus,
+    getTotalSales,
 };

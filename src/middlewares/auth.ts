@@ -1,5 +1,6 @@
-import {auth as betterAuth} from "../lib/auth"
+import { auth as betterAuthInstance } from "../lib/auth";
 import { NextFunction, Request, Response } from "express";
+
 
 export enum UserRole {
     USER = "USER",
@@ -25,7 +26,7 @@ const auth = (...roles: UserRole[]) => {
     return async (req: Request, res: Response, next: NextFunction) => {
         try {
             // Get user session
-            const session = await betterAuth.api.getSession({
+            const session = await betterAuthInstance.api.getSession({
                 headers: req.headers as any
             });
             
@@ -65,7 +66,7 @@ const auth = (...roles: UserRole[]) => {
 export const optionalAuth = () => {
     return async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const session = await betterAuth.api.getSession({
+            const session = await betterAuthInstance.api.getSession({
                 headers: req.headers as any
             });
             

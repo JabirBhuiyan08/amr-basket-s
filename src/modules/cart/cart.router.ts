@@ -8,6 +8,7 @@ router.get("/", optionalAuth(), cartController.getCart);
 router.post("/items", optionalAuth(), cartController.addToCart);
 router.put("/items/:productId", optionalAuth(), cartController.updateCartItem);
 router.delete("/items/:productId", optionalAuth(), cartController.removeCartItem);
+router.post("/merge", auth(), cartController.mergeCart);
 router.post("/checkout", auth(), cartController.checkout);
 
 export const cartRouter = router;

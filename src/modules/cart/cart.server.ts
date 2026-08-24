@@ -291,12 +291,75 @@ const checkout = async (req: Request, res: Response) => {
     });
 };
 
+const mergeCart = async (req: Request, res: Response) => {
+    if (!req.user?.id) {
+        throw new AppError(401, "Authentication required");
+    }
+
+    const guestId = req.body?.guestId || req.headers["x-guest-id"];
+    const normalizedGuestId = typeof guestId === "string" ? guestId.trim() : "";
+
+    if (!normalizedGuestId) {
+        throw new AppError(400, "Guest ID is required");
+    }
+
+    if (normalizedGuestId === req.user.id) {
+        return res.status(200).json({
+            success: true,
+            message: "No guest cart items to merge",
+            data: { merged: 0 },
+        });
+    }
+
+    const guestItems = await prisma.cartItem.findMany({
+        where: { userId: normalizedGuestId },
+    });
+
+    if (!guestItems.length) {
+        return res.status(200).json({
+            success: true,
+            message: "No guest cart items to merge",
+            data: { merged: 0 },
+        });
+    }
+
+    for (const item of guestItems) {
+        await prisma.cartItem.upsert({
+            where: {
+                userId_productId: {
+                    userId: req.user.id,
+                    productId: item.productId,
+                },
+            },
+            update: {
+                quantity: { increment: item.quantity },
+            },
+            create: {
+                userId: req.user.id,
+                productId: item.productId,
+                quantity: item.quantity,
+            },
+        });
+    }
+
+    await prisma.cartItem.deleteMany({
+        where: { userId: normalizedGuestId },
+    });
+
+    res.status(200).json({
+        success: true,
+        message: "Cart merged successfully",
+        data: { merged: guestItems.length },
+    });
+};
+
 export const cartServer = {
     addToCart,
     getCart,
     updateCartItem,
     removeCartItem,
     checkout,
+    mergeCart,
 };
 
 export default cartServer;

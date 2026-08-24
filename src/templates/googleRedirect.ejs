@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Completing Google Sign In...</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #f8fafc;
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+      background: white;
+      border-radius: 1rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      max-width: 400px;
+      width: 90%;
+    }
+    .spinner {
+      border: 3px solid #e5e7eb;
+      border-top: 3px solid #2563eb;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    h1 {
+      color: #1f2937;
+      font-size: 1.25rem;
+      margin: 0 0 0.5rem;
+    }
+    p {
+      color: #6b7280;
+      font-size: 0.875rem;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <h1>Completing Google Sign In...</h1>
+    <p>Please wait while we redirect you back to the app.</p>
+  </div>
+
+  <script>
+    // Extract callback parameters from URL
+    const params = new URLSearchParams(window.location.search);
+    const callbackParams = {};
+    
+    for (const [key, value] of params) {
+      if (key.startsWith('callback_')) {
+        const paramName = key.replace('callback_', '');
+        callbackParams[paramName] = value;
+      }
+    }
+
+    // Store callback data
+    if (Object.keys(callbackParams).length > 0) {
+      sessionStorage.setItem('google_callback', JSON.stringify(callbackParams));
+    }
+
+    // Redirect to frontend callback handler
+    const frontendUrl = '<%= frontendUrl %>';
+    const redirectPath = '<%= redirectPath %>';
+    
+    setTimeout(() => {
+      window.location.href = `${frontendUrl}${redirectPath}`;
+    }, 500);
+  </script>
+</body>
+</html>

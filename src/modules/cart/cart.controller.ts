@@ -56,12 +56,24 @@ const checkout = async (req: Request, res: Response) => {
     }
 };
 
+const mergeCart = async (req: Request, res: Response) => {
+    try {
+        await cartServer.mergeCart(req, res);
+    } catch (error: any) {
+        res.status(error.statusCode || 500).json({
+            success: false,
+            error: error.message || "Something went wrong",
+        });
+    }
+};
+
 export const cartController = {
     addToCart,
     getCart,
     updateCartItem,
     removeCartItem,
     checkout,
+    mergeCart,
 };
 
 export default cartController;

@@ -1,4 +1,4 @@
-import { betterAuth } from "better-auth";
+import { betterAuth, isProduction } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 import nodemailer from "nodemailer";
@@ -6,7 +6,7 @@ import nodemailer from "nodemailer";
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
-  secure: false,
+      secure: false,
   auth: {
     user: process.env.APP_USER,
     pass: process.env.APP_PASS,
@@ -83,6 +83,15 @@ export const auth = betterAuth({
         throw new Error("Failed to send verification email");
       }
     },
+  },
+  account: {
+    storeStateStrategy: "cookie",
+  },
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: "lax",
+      secure: false,
+    }
   },
   socialProviders: {
     google: {
