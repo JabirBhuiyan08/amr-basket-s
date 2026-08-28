@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/app-error";
+import { emitAdminNotification } from "../../socket/socketManager";
 
 const createPublicHelpRequest = async (input: {
     subject: string;
@@ -16,7 +17,7 @@ const createPublicHelpRequest = async (input: {
         throw new AppError(400, "Message is required");
     }
 
-    return prisma.helpRequest.create({
+    const created = await prisma.helpRequest.create({
         data: {
             subject: input.subject.trim(),
             message: input.message.trim(),
@@ -24,6 +25,15 @@ const createPublicHelpRequest = async (input: {
             status: "OPEN",
         },
     });
+
+    emitAdminNotification({
+        id: created.id,
+        title: "New Help Request",
+        message: `New help request: ${created.subject}`,
+        type: "info",
+    });
+
+    return created;
 };
 
 const createHelpRequest = async (input: {
@@ -48,7 +58,7 @@ const createHelpRequest = async (input: {
         throw new AppError(400, "User is required");
     }
 
-    return prisma.helpRequest.create({
+    const created = await prisma.helpRequest.create({
         data: {
             userId: input.userId,
             subject: input.subject.trim(),
@@ -57,6 +67,15 @@ const createHelpRequest = async (input: {
             status: "OPEN",
         },
     });
+
+    emitAdminNotification({
+        id: created.id,
+        title: "New Help Request",
+        message: `New help request from user: ${created.subject}`,
+        type: "info",
+    });
+
+    return created;
 };
 
 const getAllHelpRequests = async () => {
@@ -82,13 +101,22 @@ const updateHelpRequestStatus = async (id: string, status: string) => {
         throw new AppError(404, "Help request not found");
     }
 
-    return prisma.helpRequest.update({
+    const updated = await prisma.helpRequest.update({
         where: { id },
         data: {
             status: status as any,
             resolvedAt: status === "RESOLVED" || status === "CLOSED" ? new Date() : null,
         },
     });
+
+    emitAdminNotification({
+        id: updated.id,
+        title: "Help Request Updated",
+        message: `Help request status changed to ${status}`,
+        type: "success",
+    });
+
+    return updated;
 };
 
 export const helpService = {

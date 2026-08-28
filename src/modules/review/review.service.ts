@@ -9,6 +9,7 @@ import {
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../utils/app-error';
 import { Prisma } from '../../../generated/prisma/client';
+import { emitAdminNotification } from '../../socket/socketManager';
 
 const VALID_SORT_FIELDS: readonly string[] = [
   'rating',
@@ -324,7 +325,7 @@ const createReview = async (data: CreateReviewDTO) => {
     }
 
     // Get the complete review with images
-    return tx.review.findUnique({
+    const createdReview = await tx.review.findUnique({
       where: { id: review.id },
       include: {
         images: true,
@@ -343,6 +344,17 @@ const createReview = async (data: CreateReviewDTO) => {
         },
       },
     });
+
+    if (createdReview) {
+      emitAdminNotification({
+        id: createdReview.id,
+        title: 'New Product Review',
+        message: `New ${createdReview.rating}-star review for ${createdReview.product?.name || 'a product'}`,
+        type: 'info',
+      });
+    }
+
+    return createdReview;
   });
 };
 
@@ -468,6 +480,13 @@ const replyReview = async (id: string, reply: string) => {
     },
   });
 
+  emitAdminNotification({
+    id: updated.id,
+    title: 'Review Replied',
+    message: `Reply saved for review on ${updated.product?.name || 'a product'}`,
+    type: 'success',
+  });
+
   return updated;
 };
 
@@ -498,7 +517,7 @@ const updateReviewStatus = async (id: string, status: ReviewStatus) => {
     throw new AppError(404, 'Review not found');
   }
 
-  return prisma.review.update({
+  const updatedReview = await prisma.review.update({
     where: { id },
     data: { status },
     include: {
@@ -510,14 +529,23 @@ const updateReviewStatus = async (id: string, status: ReviewStatus) => {
           email: true,
         },
       },
-        product: {
-          select: {
-            id: true,
-            name: true,
-          },
+      product: {
+        select: {
+          id: true,
+          name: true,
         },
+      },
     },
   });
+
+  emitAdminNotification({
+    id: updatedReview.id,
+    title: 'Review Status Updated',
+    message: `Review for ${updatedReview.product?.name || 'product'} marked as ${status}`,
+    type: 'success',
+  });
+
+  return updatedReview;
 };
 
 // Mark review as helpful (toggle like/unlike)

@@ -10,6 +10,7 @@ import { visitorRouter } from "./modules/visitor/visitor.router";
 import { settingsRouter } from "./modules/settings/settings.router";
 import { userRouter } from "./modules/user/user.router";
 import { authRouter } from "./modules/auth/auth.router";
+import { emitAdminNotification } from "./socket/socketManager";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 
@@ -78,6 +79,19 @@ app.get("/", (req, res) => {
             customAuth: "/auth"
         }
     });
+});
+
+// Dev helper: trigger a test admin notification (toast) from the server.
+// Remove or protect before production.
+app.post("/notify-test", (req, res) => {
+    const body = req.body || {};
+    emitAdminNotification({
+        id: String(Date.now()),
+        title: body.title || "Test Notification",
+        message: body.message || "This is a real-time admin toast!",
+        type: (body.type as any) || "success",
+    });
+    res.json({ ok: true });
 });
 
 // Error handling middleware

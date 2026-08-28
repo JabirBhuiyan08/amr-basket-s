@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/app-error";
+import { getIO } from "../../socket/socketManager";
 
 const getCartIdentifier = (req: Request) => {
     if (req.user?.id) {
@@ -283,6 +284,20 @@ const checkout = async (req: Request, res: Response) => {
 
         return createdOrder;
     });
+
+    try {
+        const io = getIO();
+        io.to('admin-room').emit('order:created', {
+            orderNumber: order.orderNumber,
+            totalAmount: order.totalAmount,
+            customerName: req.user?.name || 'Customer',
+            userId: req.user?.id,
+            id: order.id,
+            createdAt: order.createdAt,
+        });
+    } catch (err) {
+        console.error('Failed to emit order created socket event:', err);
+    }
 
     res.status(201).json({
         success: true,

@@ -59,11 +59,27 @@ export const auth = betterAuth({
       },
     },
   },
-  emailAndPassword: {
-    enabled: true,
-    autoSignIn: true,
-    requireEmailVerification: false,
-  },
+emailAndPassword: {
+     enabled: true,
+     autoSignIn: true,
+     requireEmailVerification: false,
+     sendResetPassword: async ({ user, url, token }, request) => {
+       try {
+         const resetUrl = `${process.env.APP_URL}/reset-password?token=${token}`;
+         const info = await transporter.sendMail({
+           from: '"Prisma Blog" <prismablog@gmail.email>',
+           to: user.email,
+           subject: "Reset your password",
+           text: "",
+           html: `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Reset your password</title></head><body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f8;padding:24px 0;"><tr><td align="center"><table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;"><tr><td style="background:#111827;padding:20px;text-align:center;"><h1 style="margin:0;color:#ffffff;font-size:22px;">Prisma Blog</h1></td></tr><tr><td style="padding:32px;color:#374151;"><h2 style="margin-top:0;color:#111827;">Reset your password</h2><p style="font-size:15px;line-height:1.6;">We received a request to reset your password for your Prisma Blog account. Click the button below to reset it. This password reset link will expire in 1 hour.</p><div style="text-align:center;margin:32px 0;"><a href="${resetUrl}" style="background:#2563eb;color:#ffffff;padding:14px 28px;text-decoration:none;font-size:15px;border-radius:6px;display:inline-block;">Reset Password</a></div><p style="font-size:14px;line-height:1.6;color:#6b7280;">If you didn’t request a password reset, please ignore this email or contact support if you have questions.</p></td></tr><tr><td style="background:#f9fafb;padding:16px;text-align:center;font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} Prisma Blog. All rights reserved.</td></tr></table></table></body></html>`,
+         });
+         console.log("Reset email sent:", info.messageId);
+       } catch (err) {
+         console.log(err);
+         throw new Error("Failed to send reset email");
+       }
+     },
+   },
   emailVerification: {
     sendOnSignUp: false,
     autoSignInAfterVerification: true,

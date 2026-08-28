@@ -1,5 +1,6 @@
 import app from "./app";
 import { prisma } from "./lib/prisma";
+import { initSocket } from "./socket/socketManager";
 
 const PORT = process.env.PORT || 3000;
 
@@ -8,9 +9,13 @@ async function main() {
         await prisma.$connect();
         console.log("Database connected");
        
-        app.listen(PORT, () => {
+        const server = app.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);
         });
+
+        // Attach Socket.io to the underlying HTTP server
+        initSocket(server);
+        console.log("Socket.io attached");
         
     } catch (error) {
         console.log(error);
