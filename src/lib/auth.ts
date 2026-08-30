@@ -105,8 +105,8 @@ emailAndPassword: {
   },
   advanced: {
     defaultCookieAttributes: {
-      sameSite: "lax",
-      secure: false,
+      sameSite: isProduction ? "none" : "lax",
+      secure: isProduction,
     }
   },
   socialProviders: {
@@ -115,6 +115,7 @@ emailAndPassword: {
       accessType: "offline",
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
     },
   },
 });
