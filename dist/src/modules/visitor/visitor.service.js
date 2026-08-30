@@ -1,0 +1,162 @@
+import { prisma } from "../../lib/prisma";
+import { AppError } from "../../utils/app-error";
+const ensureVisitor = async (input) => {
+    const sessionId = input.sessionId || `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const existingVisitor = await prisma.visitor.findFirst({
+        where: { sessionId },
+    });
+    if (existingVisitor) {
+        return existingVisitor;
+    }
+    return prisma.visitor.create({
+        data: {
+            sessionId,
+            ipAddress: input.ipAddress || null,
+            userAgent: input.userAgent || null,
+            userId: input.userId || null,
+        },
+    });
+};
+const trackPageView = async (input) => {
+    const visitor = await ensureVisitor(input);
+    return prisma.pageView.create({
+        data: {
+            visitorId: visitor.id,
+            pageUrl: input.pageUrl,
+            pageTitle: input.pageTitle || null,
+            productId: input.productId || null,
+            categoryId: input.categoryId || null,
+            referrer: input.referrer || null,
+            timeSpent: input.timeSpent || null,
+        },
+    });
+};
+const trackProductView = async (input) => {
+    if (!input.productId) {
+        throw new AppError(400, "Product ID is required");
+    }
+    await trackPageView({
+        ...input,
+        pageUrl: input.pageUrl || `/product/${input.productId}`,
+        pageTitle: input.pageTitle || "Product View",
+        productId: input.productId,
+    });
+    return { success: true, message: "Product view tracked" };
+};
+const trackCartActivity = async (input) => {
+    if (!input.productId) {
+        throw new AppError(400, "Product ID is required");
+    }
+    const visitor = await ensureVisitor(input);
+    await prisma.pageView.create({
+        data: {
+            visitorId: visitor.id,
+            pageUrl: "/cart",
+            pageTitle: input.action,
+            productId: input.productId,
+            referrer: input.action,
+            timeSpent: input.quantity || null,
+        },
+    });
+    return { success: true, message: `Cart activity tracked: ${input.action}` };
+};
+const getVisitorAnalytics = async () => {
+    const [totalVisitors, totalPageViews, totalProductViews, cartAdds, orders] = await Promise.all([
+        prisma.visitor.count(),
+        prisma.pageView.count(),
+        prisma.pageView.count({ where: { productId: { not: null } } }),
+        prisma.pageView.count({ where: { pageTitle: "ADD_TO_CART" } }),
+        prisma.order.count(),
+    ]);
+    const topProducts = await prisma.pageView.groupBy({
+        by: ["productId"],
+        where: { productId: { not: null } },
+        _count: { productId: true },
+        orderBy: { _count: { productId: "desc" } },
+        take: 10,
+    });
+    const productDetails = await Promise.all(topProducts.map(async (item) => {
+        const product = await prisma.product.findUnique({
+            where: { id: item.productId },
+            select: { id: true, name: true },
+        });
+        return {
+            productId: item.productId,
+            productName: product?.name || "Unknown",
+            views: item._count.productId,
+        };
+    }));
+    const abandonedCarts = await prisma.pageView.findMany({
+        where: { pageTitle: "ADD_TO_CART" },
+        select: { id: true, productId: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+    });
+    return {
+        summary: {
+            totalVisitors,
+            totalPageViews,
+            totalProductViews,
+            cartAdditions: cartAdds,
+            completedOrders: orders,
+            abandonedCartEvents: abandonedCarts.length,
+        },
+        topProducts: productDetails,
+        abandonedCarts,
+    };
+};
+const getProductAnalytics = async () => {
+    const viewCounts = await prisma.pageView.groupBy({
+        by: ["productId"],
+        where: { productId: { not: null } },
+        _count: { productId: true },
+    });
+    const cartCounts = await prisma.pageView.groupBy({
+        by: ["productId"],
+        where: { productId: { not: null }, pageTitle: "ADD_TO_CART" },
+        _count: { productId: true },
+    });
+    const orderAgg = await prisma.orderItem.groupBy({
+        by: ["productId"],
+        _sum: { quantity: true, total: true },
+    });
+    const productIds = viewCounts.map((v) => v.productId);
+    const products = await prisma.product.findMany({
+        where: { id: { in: productIds } },
+        select: {
+            id: true,
+            name: true,
+            price: true,
+            images: { orderBy: { order: "asc" } },
+        },
+    });
+    const viewMap = new Map(viewCounts.map((v) => [v.productId, v._count.productId]));
+    const cartMap = new Map(cartCounts.map((v) => [v.productId, v._count.productId]));
+    const orderMap = new Map(orderAgg.map((v) => [
+        v.productId,
+        {
+            quantity: Number(v._sum.quantity ?? 0),
+            total: Number(v._sum.total ?? 0),
+        },
+    ]));
+    return products
+        .map((product) => ({
+        productId: product.id,
+        name: product.name,
+        price: Number(product.price),
+        image: product.images?.[0]?.imageUrl || null,
+        views: viewMap.get(product.id) ?? 0,
+        cartAdditions: cartMap.get(product.id) ?? 0,
+        orderedQuantity: orderMap.get(product.id)?.quantity ?? 0,
+        revenue: orderMap.get(product.id)?.total ?? 0,
+    }))
+        .sort((a, b) => b.views - a.views);
+};
+export const visitorService = {
+    trackPageView,
+    trackProductView,
+    trackCartActivity,
+    getVisitorAnalytics,
+    getProductAnalytics,
+};
+//# sourceMappingURL=visitor.service.js.map
