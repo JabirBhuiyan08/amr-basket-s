@@ -1,4 +1,4 @@
-import { betterAuth, isProduction } from "better-auth";
+import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 import nodemailer from "nodemailer";
@@ -105,8 +105,8 @@ emailAndPassword: {
   },
   advanced: {
     defaultCookieAttributes: {
-      sameSite: isProduction ? "none" : "lax",
-      secure: isProduction,
+      sameSite: "none",
+      secure: true,
     }
   },
   socialProviders: {
