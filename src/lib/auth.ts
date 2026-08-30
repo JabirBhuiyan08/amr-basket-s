@@ -25,7 +25,7 @@ export const auth = betterAuth({
     "http://localhost:5000",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5000",
-    "https://assignment4frontend-two.vercel.app",
+    "https://amrbucketclient.vercel.app",
   ].filter((origin): origin is string => origin !== undefined && origin !== ""),
   user: {
     additionalFields: {
