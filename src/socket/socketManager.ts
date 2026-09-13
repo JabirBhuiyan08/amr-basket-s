@@ -24,7 +24,9 @@ let io: Server | null = null;
 export const initSocket = (httpServer: HTTPServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map((o) => o.trim()),
+      origin: (process.env.CLIENT_URL || 'https://amrbucketclient.vercel.app,http://localhost:3000')
+        .split(',')
+        .map((o) => o.trim()),
       credentials: true,
     },
   });

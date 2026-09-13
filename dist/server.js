@@ -1625,6 +1625,7 @@ var auth = betterAuth({
   }),
   trustedOrigins: [
     process.env.FRONTEND_URL,
+    "https://amrbucketclient.vercel.app",
     "http://localhost:3000",
     "http://localhost:5000",
     "http://127.0.0.1:3000",
@@ -1797,7 +1798,7 @@ var io = null;
 var initSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: (process.env.CLIENT_URL || "http://localhost:3000").split(",").map((o) => o.trim()),
+      origin: (process.env.CLIENT_URL || "https://amrbucketclient.vercel.app,http://localhost:3000").split(",").map((o) => o.trim()),
       credentials: true
     }
   });
@@ -4663,7 +4664,8 @@ var authRouter = router11;
 import { toNodeHandler } from "better-auth/node";
 var app = express2();
 var allowedOrigins = [
-  ...(process.env.CLIENT_URL || "http://localhost:3000,http://localhost:5000").split(",").map((value) => value.trim()),
+  ...(process.env.CLIENT_URL || "https://amrbucketclient.vercel.app,http://localhost:3000,http://localhost:5000").split(",").map((value) => value.trim()),
+  "https://amrbucketclient.vercel.app",
   "http://localhost:3000",
   "http://localhost:5000",
   "http://127.0.0.1:3000",

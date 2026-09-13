@@ -18,9 +18,10 @@ import { auth } from "./lib/auth";
 const app = express();
 
 const allowedOrigins = [
-    ...(process.env.CLIENT_URL || "http://localhost:3000,http://localhost:5000")
+    ...(process.env.CLIENT_URL || "https://amrbucketclient.vercel.app,http://localhost:3000,http://localhost:5000")
         .split(",")
         .map((value) => value.trim()),
+    "https://amrbucketclient.vercel.app",
     "http://localhost:3000",
     "http://localhost:5000",
     "http://127.0.0.1:3000",
