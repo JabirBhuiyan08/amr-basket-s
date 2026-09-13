@@ -1,5 +1,6 @@
 // src/app.ts
 import express2 from "express";
+import cors from "cors";
 
 // src/modules/product/product.router.ts
 import express from "express";
@@ -1628,7 +1629,7 @@ var auth = betterAuth({
     "http://localhost:5000",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5000",
-    "https://assignment4frontend-two.vercel.app"
+    "https://amrbucketclient.vercel.app"
   ].filter((origin) => origin !== void 0 && origin !== ""),
   user: {
     additionalFields: {
@@ -1708,8 +1709,8 @@ var auth = betterAuth({
   },
   advanced: {
     defaultCookieAttributes: {
-      sameSite: "lax",
-      secure: false
+      sameSite: "none",
+      secure: true
     }
   },
   socialProviders: {
@@ -1717,7 +1718,8 @@ var auth = betterAuth({
       prompt: "select_account consent",
       accessType: "offline",
       clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL
     }
   }
 });
@@ -4660,22 +4662,25 @@ var authRouter = router11;
 // src/app.ts
 import { toNodeHandler } from "better-auth/node";
 var app = express2();
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000,http://localhost:5000").split(",").map((value) => value.trim());
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Vary", "Origin");
-  }
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Guest-Id");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-  if (req.method === "OPTIONS") {
-    res.sendStatus(204);
-    return;
-  }
-  next();
-});
+var allowedOrigins = [
+  ...(process.env.CLIENT_URL || "http://localhost:3000,http://localhost:5000").split(",").map((value) => value.trim()),
+  "http://localhost:3000",
+  "http://localhost:5000",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5000"
+].filter((value) => typeof value === "string" && value !== "");
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, origin);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "X-Guest-Id"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+}));
 app.all("/api/auth/{*any}", toNodeHandler(auth));
 app.use(express2.json());
 app.use(express2.urlencoded({ extended: true }));

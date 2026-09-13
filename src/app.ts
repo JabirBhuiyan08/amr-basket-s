@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { productRouter } from "./modules/product/product.router";
 import { categoryRouter } from "./modules/category/category.router";
 import { reviewRouter } from "./modules/review/review.router";
@@ -16,29 +17,28 @@ import { auth } from "./lib/auth";
 
 const app = express();
 
-// Global middleware
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000,http://localhost:5000")
+const allowedOrigins = [
+    ...(process.env.CLIENT_URL || "http://localhost:3000,http://localhost:5000")
         .split(",")
-        .map((value) => value.trim());
+        .map((value) => value.trim()),
+    "http://localhost:3000",
+    "http://localhost:5000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5000",
+].filter((value): value is string => typeof value === "string" && value !== "");
 
-    if (origin && allowedOrigins.includes(origin)) {
-        res.header("Access-Control-Allow-Origin", origin);
-        res.header("Vary", "Origin");
-    }
-
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Guest-Id");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-
-    if (req.method === "OPTIONS") {
-        res.sendStatus(204);
-        return;
-    }
-
-    next();
-});
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, origin);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
+    credentials: true,
+    allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "X-Guest-Id"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+}));
 
 // Better Auth handler - Express v5 catch-all syntax
 app.all("/api/auth/{*any}", toNodeHandler(auth));
