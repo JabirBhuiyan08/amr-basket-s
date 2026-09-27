@@ -3,6 +3,13 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 import nodemailer from "nodemailer";
 
+// OAuth state is kept in a cookie between the initial sign-in request and the
+// provider callback. `SameSite=None` requires HTTPS, so it is not valid for a
+// local `http://localhost` server. Production uses separate Vercel/Render
+// origins and therefore needs `SameSite=None` + `Secure`.
+const authBaseURL = process.env.BETTER_AUTH_URL || "http://localhost:5000";
+const isLocalAuthServer = /(^|\/\/)(localhost|127\.0\.0\.1)(:\d+)?(?=\/|$)/i.test(authBaseURL);
+
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
@@ -14,7 +21,7 @@ const transporter = nodemailer.createTransport({
 });
 
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: authBaseURL,
   secret: process.env.BETTER_AUTH_SECRET,
   database: prismaAdapter(prisma, {
     provider: "postgresql",
@@ -102,12 +109,16 @@ emailAndPassword: {
     },
   },
   account: {
-    storeStateStrategy: "cookie",
+    // Store the OAuth state in the database so the Vercel -> Render flow does
+    // not depend on a third-party state cookie surviving the initial request.
+    // The state and PKCE values are still validated server-side on callback.
+    storeStateStrategy: "database",
+    skipStateCookieCheck: true,
   },
   advanced: {
     defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
+      sameSite: isLocalAuthServer ? "lax" : "none",
+      secure: !isLocalAuthServer,
     }
   },
   socialProviders: {
@@ -116,7 +127,7 @@ emailAndPassword: {
       accessType: "offline",
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+      callbackURL: `${authBaseURL.replace(/\/$/, "")}/api/auth/callback/google`,
     },
   },
 });
