@@ -1,4 +1,7 @@
 import { Buffer } from "buffer";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import { deflateSync, inflateSync } from "zlib";
 
 /**
  * Minimal, dependency-free PDF invoice generator.
@@ -41,6 +44,111 @@ function pad10(num: number): string {
     return "0".repeat(Math.max(0, 10 - s.length)) + s;
 }
 
+function paethPredictor(left: number, above: number, upperLeft: number): number {
+    const estimate = left + above - upperLeft;
+    const leftDistance = Math.abs(estimate - left);
+    const aboveDistance = Math.abs(estimate - above);
+    const upperLeftDistance = Math.abs(estimate - upperLeft);
+
+    if (leftDistance <= aboveDistance && leftDistance <= upperLeftDistance) return left;
+    return aboveDistance <= upperLeftDistance ? above : upperLeft;
+}
+
+function decodeLogoPng(png: Buffer) {
+    if (!png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+        throw new Error("Invoice logo is not a PNG image");
+    }
+
+    let width = 0;
+    let height = 0;
+    let bitDepth = 0;
+    let colorType = 0;
+    let interlace = 0;
+    const imageData: Buffer[] = [];
+
+    for (let offset = 8; offset < png.length;) {
+        const length = png.readUInt32BE(offset);
+        const type = png.toString("ascii", offset + 4, offset + 8);
+        const chunk = png.subarray(offset + 8, offset + 8 + length);
+        if (type === "IHDR") {
+            width = chunk.readUInt32BE(0);
+            height = chunk.readUInt32BE(4);
+            bitDepth = chunk[8];
+            colorType = chunk[9];
+            interlace = chunk[12];
+        } else if (type === "IDAT") {
+            imageData.push(chunk);
+        } else if (type === "IEND") {
+            break;
+        }
+        offset += length + 12;
+    }
+
+    if (!width || !height || bitDepth !== 8 || colorType !== 6 || interlace !== 0) {
+        throw new Error("Invoice logo must be a non-interlaced 8-bit RGBA PNG");
+    }
+
+    const rowLength = width * 4;
+    const filtered = inflateSync(Buffer.concat(imageData));
+    const pixels = Buffer.alloc(rowLength * height);
+    for (let row = 0; row < height; row += 1) {
+        const sourceOffset = row * (rowLength + 1);
+        const targetOffset = row * rowLength;
+        const filter = filtered[sourceOffset];
+
+        for (let column = 0; column < rowLength; column += 1) {
+            const left = column >= 4 ? pixels[targetOffset + column - 4] : 0;
+            const above = row > 0 ? pixels[targetOffset - rowLength + column] : 0;
+            const upperLeft = row > 0 && column >= 4 ? pixels[targetOffset - rowLength + column - 4] : 0;
+            let predictor = 0;
+
+            if (filter === 1) predictor = left;
+            else if (filter === 2) predictor = above;
+            else if (filter === 3) predictor = Math.floor((left + above) / 2);
+            else if (filter === 4) predictor = paethPredictor(left, above, upperLeft);
+            else if (filter !== 0) throw new Error("Invoice logo contains an unsupported PNG filter");
+
+            pixels[targetOffset + column] = (filtered[sourceOffset + column + 1] + predictor) & 0xff;
+        }
+    }
+
+    let left = width;
+    let top = height;
+    let right = -1;
+    let bottom = -1;
+    for (let row = 0; row < height; row += 1) {
+        for (let column = 0; column < width; column += 1) {
+            if (pixels[(row * width + column) * 4 + 3] > 8) {
+                left = Math.min(left, column);
+                top = Math.min(top, row);
+                right = Math.max(right, column);
+                bottom = Math.max(bottom, row);
+            }
+        }
+    }
+    if (right < left || bottom < top) throw new Error("Invoice logo is empty");
+
+    const croppedWidth = right - left + 1;
+    const croppedHeight = bottom - top + 1;
+    const rgb = Buffer.alloc(croppedWidth * croppedHeight * 3);
+    const alpha = Buffer.alloc(croppedWidth * croppedHeight);
+    for (let row = 0; row < croppedHeight; row += 1) {
+        for (let column = 0; column < croppedWidth; column += 1) {
+            const source = ((top + row) * width + left + column) * 4;
+            const target = row * croppedWidth + column;
+            pixels.copy(rgb, target * 3, source, source + 3);
+            alpha[target] = pixels[source + 3];
+        }
+    }
+
+    return {
+        width: croppedWidth,
+        height: croppedHeight,
+        rgb: deflateSync(rgb),
+        alpha: deflateSync(alpha),
+    };
+}
+
 export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     const pageW = 595;
     const pageH = 842;
@@ -57,6 +165,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     const pages: string[][] = [];
     let commands: string[] = [];
     let y = 0;
+    const logo = decodeLogoPng(readFileSync(resolve(process.cwd(), "assets", "main-logo.png")));
 
     const rectangle = (x: number, top: number, width: number, height: number, color: string) => {
         commands.push(`${color} rg ${x} ${pageH - top - height} ${width} ${height} re f`);
@@ -64,6 +173,10 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
 
     const rule = (x1: number, top: number, x2: number, color = colors.rule) => {
         commands.push(`${color} RG 0.7 w ${x1} ${pageH - top} m ${x2} ${pageH - top} l S`);
+    };
+
+    const image = (x: number, top: number, width: number, height: number) => {
+        commands.push(`q ${width.toFixed(2)} 0 0 ${height.toFixed(2)} ${x.toFixed(2)} ${(pageH - top - height).toFixed(2)} cm /Im1 Do Q`);
     };
 
     const text = (
@@ -102,8 +215,8 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
         commands = [];
         pages.push(commands);
         rectangle(0, 0, pageW, 7, colors.red);
-        text("AMRBASKET", margin, 52, 21, colors.red, true);
-        text("EVERYDAY ESSENTIALS, DELIVERED", margin, 70, 8, colors.muted, true);
+        const logoScale = Math.min(150 / logo.width, 76 / logo.height);
+        image(margin, 8, logo.width * logoScale, logo.height * logoScale);
         text(continuation ? "INVOICE / CONTINUED" : "INVOICE", right, 53, 22, colors.ink, true, "right");
         text(`Invoice ${data.invoiceNumber || "N/A"}`, right, 72, 9, colors.muted, false, "right");
         y = continuation ? 112 : 0;
@@ -119,7 +232,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     };
 
     startPage();
-    rectangle(margin, 94, right - margin, 58, colors.pale);
+    rectangle(margin, 94, right - margin, 94, colors.pale);
     const metadata: Array<[string, string]> = [
         ["INVOICE NUMBER", data.invoiceNumber || "N/A"],
         ["ORDER NUMBER", data.orderNumber || "N/A"],
@@ -127,15 +240,18 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
         ["ORDER STATUS", data.status || "PENDING"],
     ];
     metadata.forEach(([label, value], index) => {
-        const x = margin + 12 + index * 122;
-        text(label, x, 113, 7, colors.muted, true);
-        text(value, x, 135, 9, colors.ink, true);
+        const column = index % 2;
+        const row = Math.floor(index / 2);
+        const x = margin + 12 + column * 246;
+        const labelBaseline = row === 0 ? 112 : 154;
+        text(label, x, labelBaseline, 7, colors.muted, true);
+        text(value, x, labelBaseline + 16, 8.5, colors.ink, true);
     });
 
-    rectangle(margin, 174, 241, 104, colors.pale);
-    rectangle(306, 174, right - 306, 104, colors.pale);
-    text("BILL TO", margin + 12, 195, 8, colors.red, true);
-    let customerY = 215;
+    rectangle(margin, 200, 241, 104, colors.pale);
+    rectangle(306, 200, right - 306, 104, colors.pale);
+    text("BILL TO", margin + 12, 221, 8, colors.red, true);
+    let customerY = 241;
     const customerLines = [
         ...wrap(data.customerName || "Unknown", 39),
         ...wrap(data.customerAddress || "", 39),
@@ -144,13 +260,13 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     customerLines.slice(0, 4).forEach((line, index) => {
         text(line, margin + 12, customerY + index * 15, 9, index === 0 ? colors.ink : colors.muted, index === 0);
     });
-    text("ORDER", 318, 195, 8, colors.red, true);
-    text("Payment due", 318, 217, 8, colors.muted);
-    text("As agreed at checkout", 318, 233, 9, colors.ink, true);
-    text("Status", 318, 254, 8, colors.muted);
-    text(data.status || "PENDING", 375, 254, 9, colors.ink, true);
+    text("ORDER", 318, 221, 8, colors.red, true);
+    text("Payment due", 318, 243, 8, colors.muted);
+    text("As agreed at checkout", 318, 259, 9, colors.ink, true);
+    text("Status", 318, 280, 8, colors.muted);
+    text(data.status || "PENDING", 375, 280, 9, colors.ink, true);
 
-    y = 304;
+    y = 330;
     drawTableHeader();
     let rowIndex = 0;
     for (const item of data.items || []) {
@@ -206,16 +322,23 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     const body = (num: number, content: string) => `${num} 0 obj\n${content}\nendobj\n`;
     const objects: string[] = [
         body(1, "<< /Type /Catalog /Pages 2 0 R >>"),
-        body(2, `<< /Type /Pages /Kids [${pages.map((_, index) => `${5 + index * 2} 0 R`).join(" ")}] /Count ${pages.length} >>`),
+        body(2, `<< /Type /Pages /Kids [${pages.map((_, index) => `${7 + index * 2} 0 R`).join(" ")}] /Count ${pages.length} >>`),
         body(3, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
         body(4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"),
     ];
 
+    const imageObject = (num: number, dictionary: string, stream: Buffer) =>
+        `${num} 0 obj\n<< ${dictionary} /Length ${stream.length} >>\nstream\n${stream.toString("latin1")}\nendstream\nendobj\n`;
+    objects.push(
+        imageObject(5, ` /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode`, logo.alpha),
+        imageObject(6, ` /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask 5 0 R`, logo.rgb),
+    );
+
     pages.forEach((page, index) => {
-        const pageObject = 5 + index * 2;
+        const pageObject = 7 + index * 2;
         const contentObject = pageObject + 1;
         const content = page.join("\n");
-        objects.push(body(pageObject, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Contents ${contentObject} 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>`));
+        objects.push(body(pageObject, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Contents ${contentObject} 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im1 6 0 R >> >> >>`));
         objects.push(body(contentObject, `<< /Length ${Buffer.byteLength(content, "latin1")} >>\nstream\n${content}\nendstream`));
     });
 
