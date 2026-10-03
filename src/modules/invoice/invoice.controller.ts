@@ -117,6 +117,7 @@ const streamInvoicePdf = async (req: Request, res: Response) => {
             })),
             subtotal: Number(order.subtotal).toFixed(2),
             shippingCost: Number(order.shippingCost || 0).toFixed(2),
+            tax: Number(order.tax || 0).toFixed(2),
             total: Number(order.totalAmount).toFixed(2),
         };
 
