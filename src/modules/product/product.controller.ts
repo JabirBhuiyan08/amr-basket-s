@@ -11,6 +11,12 @@ import {
 } from './product.types';
 import { productService } from './product.service';
 
+const validateBuyingPrice = (value: number | null | undefined) => {
+    if (value !== undefined && value !== null && (!Number.isFinite(value) || value < 0)) {
+        throw new AppError(400, 'Buying price must be a non-negative number');
+    }
+};
+
 // Get all products with filtering, sorting, and pagination
 const getAllProducts = async (req: Request, res: Response) => {
     try {
@@ -34,6 +40,27 @@ const getAllProducts = async (req: Request, res: Response) => {
             data: result.data,
             meta: result.meta,
         });
+    } catch (error) {
+        handleError(error, res);
+    }
+}
+
+const getAdminProducts = async (req: Request, res: Response) => {
+    try {
+        const query = {
+            page: req.query.page ? parseInt(req.query.page as string) : undefined,
+            limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+            search: req.query.search as string,
+            categoryId: req.query.categoryId as string,
+            minPrice: req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined,
+            maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined,
+            inStock: req.query.inStock !== undefined ? req.query.inStock === 'true' : undefined,
+            sortBy: req.query.sortBy as string,
+            sortOrder: req.query.sortOrder as 'asc' | 'desc' || 'desc',
+            minRating: req.query.minRating ? parseFloat(req.query.minRating as string) : undefined,
+        };
+        const result = await productService.getAdminProducts(query as ProductQueryDTO);
+        res.status(200).json({ success: true, data: result.data, meta: result.meta });
     } catch (error) {
         handleError(error, res);
     }
@@ -107,15 +134,8 @@ const searchProducts = async (req: Request, res: Response) => {
 // Create a new product
 const createProduct = async (req: Request, res: Response) => {
     try {
-        // Debug: Log the entire request body and headers
-        console.log('===== CREATE PRODUCT DEBUG =====');
-        console.log('Content-Type:', req.headers['content-type']);
-        console.log('Request Body:', req.body);
-        console.log('Request Body Type:', typeof req.body);
-        console.log('Request Body Keys:', req.body ? Object.keys(req.body) : 'No body');
-        console.log('================================');
-
         const data: CreateProductDTO = req.body;
+        validateBuyingPrice(data?.buyingPrice);
 
         // Validate required fields
         if (!data || !data.name) {
@@ -145,6 +165,7 @@ const updateProduct = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const data: UpdateProductDTO = req.body;
+        validateBuyingPrice(data?.buyingPrice);
 
         // Check if product exists
         const existingProduct = await productService.getProductById(id as string);
@@ -305,6 +326,7 @@ const handleError = (error: any, res: Response) => {
 
 export const productController = {
     getAllProducts,
+    getAdminProducts,
     getProductById,
     getProductsByCategory,
     searchProducts,

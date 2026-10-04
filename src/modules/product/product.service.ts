@@ -27,7 +27,7 @@ const VALID_SORT_FIELDS: readonly string[] = [
 type ValidSortField = typeof VALID_SORT_FIELDS[number];
 
 
-const getAllProducts = async (query: ProductQueryDTO) => {
+const getAllProducts = async (query: ProductQueryDTO, includeBuyingPrice = false) => {
   const {
     page = 1,
     limit = 10,
@@ -84,6 +84,7 @@ const getAllProducts = async (query: ProductQueryDTO) => {
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
+      ...(includeBuyingPrice ? { omit: { buyingPrice: false } } : {}),
       include: {
         category: true,
         images: {
@@ -143,6 +144,8 @@ const getAllProducts = async (query: ProductQueryDTO) => {
     },
   };
 }
+
+const getAdminProducts = (query: ProductQueryDTO) => getAllProducts(query, true);
 
 const getProductById = async (id: string) => {
   try {
@@ -396,6 +399,9 @@ const createProduct = async (data: CreateProductDTO) => {
     if (productData.description !== undefined) {
       createData.description = productData.description;
     }
+    if (productData.buyingPrice !== undefined) {
+      createData.buyingPrice = productData.buyingPrice;
+    }
     if (productData.discount !== undefined) {
       createData.discount = productData.discount;
     }
@@ -535,6 +541,7 @@ const updateProduct = async (id: string, data: UpdateProductDTO) => {
 
     if (productData.name !== undefined) updateData.name = productData.name;
     if (productData.price !== undefined) updateData.price = productData.price;
+    if (productData.buyingPrice !== undefined) updateData.buyingPrice = productData.buyingPrice;
     if (productData.description !== undefined) updateData.description = productData.description;
     if (productData.discount !== undefined) updateData.discount = productData.discount;
     if (discountPrice !== existingProduct.discountPrice) updateData.discountPrice = discountPrice;
@@ -833,6 +840,7 @@ const updateProductSEO = async (id: string, seoData: ProductSEOUpdateDTO) => {
 
 export const productService = {
   getAllProducts,
+  getAdminProducts,
   getProductById,
   getProductsByCategory,
   searchProducts,

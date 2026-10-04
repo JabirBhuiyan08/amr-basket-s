@@ -185,6 +185,18 @@ const getTotalSales = async (req: Request, res: Response) => {
     }
 };
 
+const getGrossProfit = async (_req: Request, res: Response) => {
+    try {
+        const result = await orderService.getGrossProfit();
+        res.status(200).json({ success: true, data: result });
+    } catch (error: any) {
+        res.status(error.statusCode || 500).json({
+            success: false,
+            error: error.message || "Something went wrong",
+        });
+    }
+};
+
 export const orderController = {
     getOrders,
     getAllOrders,
@@ -192,6 +204,7 @@ export const orderController = {
     updateOrderStatus,
     updatePaymentStatus,
     getTotalSales,
+    getGrossProfit,
 };
 
 export default orderController;

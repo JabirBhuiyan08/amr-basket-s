@@ -217,6 +217,29 @@ const getTotalSales = async () => {
     };
 };
 
+const getGrossProfit = async () => {
+    const paidItems = await prisma.orderItem.findMany({
+        where: { order: { paymentStatus: "PAID" } },
+        select: {
+            quantity: true,
+            price: true,
+            product: { select: { buyingPrice: true } },
+        },
+    });
+
+    const pricedItems = paidItems.filter((item) => item.product.buyingPrice !== null);
+    const grossProfitInCents = pricedItems.reduce(
+        (sum, item) => sum + Math.round((Number(item.price) - Number(item.product.buyingPrice)) * 100) * item.quantity,
+        0,
+    );
+
+    return {
+        grossProfit: grossProfitInCents / 100,
+        pricedLineCount: pricedItems.length,
+        missingBuyingPriceLineCount: paidItems.length - pricedItems.length,
+    };
+};
+
 export const orderService = {
     getOrdersForUser,
     getAllOrders,
@@ -224,4 +247,5 @@ export const orderService = {
     updateOrderStatus,
     updatePaymentStatus,
     getTotalSales,
+    getGrossProfit,
 };

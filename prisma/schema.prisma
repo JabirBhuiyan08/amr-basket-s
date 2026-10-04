@@ -20,6 +20,7 @@ model Product {
   name            String
   description     String?
   price           Decimal        @db.Decimal(10, 2)
+  buyingPrice     Decimal?       @db.Decimal(10, 2)
   discount        Decimal?       @db.Decimal(5, 2)
   discountPrice   Decimal?       @db.Decimal(10, 2)
   inStock         Boolean        @default(true)
