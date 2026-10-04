@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { orderService } from "./order.service";
 import { AppError } from "../../utils/app-error";
+import { emitOrderStatusUpdated } from "../../socket/socketManager";
 
 const serializeOrder = (order: any) => {
     const shippingAddress = typeof order.shippingAddress === "object" && order.shippingAddress ? order.shippingAddress : {};
@@ -127,6 +128,7 @@ const updateOrderStatus = async (req: Request, res: Response) => {
         }
 
         const updatedOrder = await orderService.updateOrderStatus(id, status);
+        emitOrderStatusUpdated({ orderId: updatedOrder.id, status: updatedOrder.status });
 
         res.status(200).json({
             success: true,

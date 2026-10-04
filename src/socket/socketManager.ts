@@ -12,6 +12,11 @@ export interface AdminNotification {
   link?: string;
 }
 
+export interface OrderStatusUpdate {
+  orderId: string;
+  status: string;
+}
+
 let io: Server | null = null;
 
 /**
@@ -56,4 +61,9 @@ export const emitAdminNotification = (payload: AdminNotification) => {
     createdAt: payload.createdAt ?? new Date().toISOString(),
   };
   io.to('admin-room').emit('admin:notification', data);
+};
+
+export const emitOrderStatusUpdated = (payload: OrderStatusUpdate) => {
+  if (!io) return;
+  io.to('admin-room').emit('orderStatusUpdated', payload);
 };
