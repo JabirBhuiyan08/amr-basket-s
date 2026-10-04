@@ -1090,12 +1090,12 @@ var auth = betterAuth({
   }),
   trustedOrigins: [
     process.env.FRONTEND_URL,
-    "https://amrbucketclient.vercel.app",
+    "https://amrbasket.vercel.app",
     "http://localhost:3000",
     "http://localhost:5000",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5000",
-    "https://amrbucketclient.vercel.app"
+    "https://amrbasket.vercel.app"
   ].filter((origin) => origin !== void 0 && origin !== ""),
   user: {
     additionalFields: {
@@ -1841,7 +1841,7 @@ var io = null;
 var initSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: (process.env.CLIENT_URL || "https://amrbucketclient.vercel.app,http://localhost:3000").split(",").map((o) => o.trim()),
+      origin: (process.env.CLIENT_URL || "https://amrbasket.vercel.app,http://localhost:3000").split(",").map((o) => o.trim()),
       credentials: true
     }
   });
@@ -4933,8 +4933,8 @@ var authRouter = router11;
 import { toNodeHandler } from "better-auth/node";
 var app = express2();
 var allowedOrigins = [
-  ...(process.env.CLIENT_URL || "https://amrbucketclient.vercel.app,http://localhost:3000,http://localhost:5000").split(",").map((value) => value.trim()),
-  "https://amrbucketclient.vercel.app",
+  ...(process.env.CLIENT_URL || "https://amrbasket.vercel.app,http://localhost:3000,http://localhost:5000").split(",").map((value) => value.trim()),
+  "https://amrbasket.vercel.app",
   "http://localhost:3000",
   "http://localhost:5000",
   "http://127.0.0.1:3000",
