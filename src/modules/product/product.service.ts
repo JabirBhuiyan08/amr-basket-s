@@ -147,10 +147,17 @@ const getAllProducts = async (query: ProductQueryDTO, includeBuyingPrice = false
 
 const getAdminProducts = (query: ProductQueryDTO) => getAllProducts(query, true);
 
+// Public product URLs use the SEO slug. Keep ID lookup as a fallback so
+// existing links and internal callers continue to work.
 const getProductById = async (id: string) => {
   try {
-    const product = await prisma.product.findUnique({
-      where: { id },
+    const product = await prisma.product.findFirst({
+      where: {
+        OR: [
+          { id },
+          { seo: { slug: id } },
+        ],
+      },
       include: {
         category: true,
         images: {

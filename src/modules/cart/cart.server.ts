@@ -130,6 +130,7 @@ const getCart = async (req: Request, res: Response) => {
             product: {
                 include: {
                     images: true,
+                    seo: true,
                 },
             },
         },
