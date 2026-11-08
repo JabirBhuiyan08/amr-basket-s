@@ -158,7 +158,7 @@ var getAllProducts = async (query, includeBuyingPrice = false) => {
       where,
       ...includeBuyingPrice ? { omit: { buyingPrice: false } } : {},
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: {
           orderBy: {
             order: "asc"
@@ -201,6 +201,11 @@ var getAllProducts = async (query, includeBuyingPrice = false) => {
       totalReviews: product._count.reviews
     };
   });
+  const inventoryStats = includeBuyingPrice && page === 1 ? await Promise.all([
+    prisma.product.aggregate({ where, _sum: { stockQuantity: true } }),
+    prisma.product.count({ where: { ...where, stockQuantity: { gt: 0 } } }),
+    prisma.product.count({ where: { ...where, stockQuantity: 0 } })
+  ]) : void 0;
   return {
     data: productsWithRating,
     meta: {
@@ -208,16 +213,29 @@ var getAllProducts = async (query, includeBuyingPrice = false) => {
       page,
       limit,
       totalPages: Math.ceil(total / limit)
-    }
+    },
+    ...inventoryStats ? {
+      stats: {
+        total,
+        totalStock: inventoryStats[0]._sum.stockQuantity || 0,
+        inStock: inventoryStats[1],
+        outOfStock: inventoryStats[2]
+      }
+    } : {}
   };
 };
 var getAdminProducts = (query) => getAllProducts(query, true);
 var getProductById = async (id) => {
   try {
-    const product = await prisma.product.findUnique({
-      where: { id },
+    const product = await prisma.product.findFirst({
+      where: {
+        OR: [
+          { id },
+          { seo: { slug: id } }
+        ]
+      },
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: {
           orderBy: {
             order: "asc"
@@ -478,7 +496,7 @@ var createProduct = async (data) => {
     const product = await tx.product.create({
       data: createData,
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: true,
         seo: true
       }
@@ -503,7 +521,7 @@ var createProduct = async (data) => {
     return tx.product.findUnique({
       where: { id: product.id },
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: {
           orderBy: {
             order: "asc"
@@ -568,7 +586,7 @@ var updateProduct = async (id, data) => {
       where: { id },
       data: updateData,
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: true,
         seo: true
       }
@@ -622,7 +640,7 @@ var updateProduct = async (id, data) => {
     return tx.product.findUnique({
       where: { id },
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: {
           orderBy: {
             order: "asc"
@@ -664,7 +682,7 @@ var updateStock = async (id, quantity, operation) => {
     },
     include: {
       images: true,
-      category: true
+      category: { include: { parent: true } }
     }
   });
 };
@@ -710,7 +728,7 @@ var addProductImage = async (productId, imageData) => {
           order: "asc"
         }
       },
-      category: true,
+      category: { include: { parent: true } },
       seo: true
     }
   });
@@ -785,7 +803,7 @@ var updateProductSEO = async (id, seoData) => {
   return prisma.product.findUnique({
     where: { id },
     include: {
-      category: true,
+      category: { include: { parent: true } },
       images: true,
       seo: true
     }
@@ -851,7 +869,7 @@ var getAdminProducts2 = async (req, res) => {
       minRating: req.query.minRating ? parseFloat(req.query.minRating) : void 0
     };
     const result = await productService.getAdminProducts(query);
-    res.status(200).json({ success: true, data: result.data, meta: result.meta });
+    res.status(200).json({ success: true, data: result.data, meta: result.meta, stats: result.stats });
   } catch (error) {
     handleError(error, res);
   }
@@ -1374,40 +1392,46 @@ var getCategoryById = async (id) => {
   return category;
 };
 var getCategoryBySlug = async (slug) => {
-  const category = await prisma.category.findUnique({
-    where: { slug },
-    include: {
-      parent: true,
-      children: {
-        include: {
-          _count: {
-            select: {
-              products: true
-            }
+  const include = {
+    parent: true,
+    children: {
+      include: {
+        _count: {
+          select: {
+            products: true
           }
-        }
-      },
-      products: {
-        take: 10,
-        include: {
-          images: {
-            where: { isPrimary: true },
-            take: 1
-          }
-        }
-      },
-      _count: {
-        select: {
-          products: true,
-          children: true
         }
       }
+    },
+    products: {
+      take: 10,
+      include: {
+        images: {
+          where: { isPrimary: true },
+          take: 1
+        }
+      }
+    },
+    _count: {
+      select: {
+        products: true,
+        children: true
+      }
     }
+  };
+  const category = await prisma.category.findUnique({ where: { slug }, include });
+  if (category) return category;
+  const legacyCategories = await prisma.category.findMany({
+    select: { id: true, name: true, slug: true }
   });
-  if (!category) {
-    return null;
-  }
-  return category;
+  const legacyMatch = legacyCategories.find(
+    (candidate) => {
+      const savedSlug = candidate.slug || candidate.name;
+      const normalizedSlug = slugify2(savedSlug, { lower: true, strict: true }) || candidate.id;
+      return normalizedSlug === slug;
+    }
+  );
+  return legacyMatch ? prisma.category.findUnique({ where: { id: legacyMatch.id }, include }) : null;
 };
 var getCategoryTree = async () => {
   const categories = await prisma.category.findMany({
@@ -1444,7 +1468,7 @@ var getCategoryTree = async () => {
 };
 var createCategory = async (data) => {
   const { name, description, slug, image, parentId, metaTitle, metaDescription, metaKeywords } = data;
-  const categorySlug = slug || slugify2(name, { lower: true, strict: true });
+  const categorySlug = slugify2(slug || name, { lower: true, strict: true });
   if (categorySlug) {
     const existing = await prisma.category.findUnique({
       where: { slug: categorySlug }
@@ -1510,10 +1534,11 @@ var updateCategory = async (id, data) => {
       throw new AppError(400, "Parent category not found");
     }
   }
-  if (slug) {
+  const categorySlug = slug === void 0 ? void 0 : slugify2(slug || name || existingCategory.name, { lower: true, strict: true });
+  if (categorySlug) {
     const existing = await prisma.category.findFirst({
       where: {
-        slug,
+        slug: categorySlug,
         NOT: {
           id
         }
@@ -1531,7 +1556,7 @@ var updateCategory = async (id, data) => {
     updateData.description = description;
   }
   if (slug !== void 0) {
-    updateData.slug = slug;
+    updateData.slug = categorySlug;
   }
   if (image !== void 0) {
     updateData.image = image;
@@ -1863,6 +1888,10 @@ var emitAdminNotification = (payload) => {
     createdAt: payload.createdAt ?? (/* @__PURE__ */ new Date()).toISOString()
   };
   io.to("admin-room").emit("admin:notification", data);
+};
+var emitOrderStatusUpdated = (payload) => {
+  if (!io) return;
+  io.to("admin-room").emit("orderStatusUpdated", payload);
 };
 
 // src/modules/review/review.service.ts
@@ -2778,7 +2807,13 @@ var getCart = async (req, res) => {
     include: {
       product: {
         include: {
-          images: true
+          images: true,
+          seo: true,
+          category: {
+            include: {
+              parent: true
+            }
+          }
         }
       }
     },
@@ -3392,54 +3427,117 @@ var getOrdersForUser = async (userId) => {
     orderBy: { createdAt: "desc" }
   });
 };
-var getAllOrders = async () => {
+var getAllOrders = async ({
+  page = 1,
+  limit = 30,
+  search,
+  status
+} = {}) => {
   try {
-    return await prisma.order.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true
+    const skip = (page - 1) * limit;
+    const where = {};
+    const normalizedSearch = search?.trim();
+    if (status && status !== "ALL") {
+      where.status = status;
+    }
+    if (normalizedSearch) {
+      where.OR = [
+        { id: { contains: normalizedSearch, mode: "insensitive" } },
+        { orderNumber: { contains: normalizedSearch, mode: "insensitive" } },
+        { shippingAddress: { path: ["fullName"], string_contains: normalizedSearch } },
+        { shippingAddress: { path: ["name"], string_contains: normalizedSearch } },
+        {
+          user: {
+            is: {
+              OR: [
+                { name: { contains: normalizedSearch, mode: "insensitive" } },
+                { email: { contains: normalizedSearch, mode: "insensitive" } }
+              ]
+            }
           }
         },
-        invoice: true,
-        items: {
-          include: {
-            product: {
-              include: {
-                images: {
-                  orderBy: { order: "asc" }
+        {
+          items: {
+            some: {
+              OR: [
+                { productId: { contains: normalizedSearch, mode: "insensitive" } },
+                {
+                  product: {
+                    is: {
+                      OR: [
+                        { name: { contains: normalizedSearch, mode: "insensitive" } },
+                        { sku: { contains: normalizedSearch, mode: "insensitive" } }
+                      ]
+                    }
+                  }
                 }
-              }
+              ]
+            }
+          }
+        }
+      ];
+    }
+    const statsPromise = page === 1 ? Promise.all([
+      prisma.order.count(),
+      prisma.order.count({ where: { status: "PENDING" } }),
+      prisma.order.count({ where: { status: { in: ["PROCESSING", "SHIPPED"] } } }),
+      prisma.order.count({ where: { status: "DELIVERED" } }),
+      prisma.order.count({ where: { status: { notIn: ["DELIVERED", "CANCELLED", "REFUNDED"] } } }),
+      prisma.order.aggregate({
+        where: { paymentStatus: "PAID" },
+        _sum: { subtotal: true, shippingCost: true }
+      })
+    ]) : Promise.resolve(null);
+    const [orders, total, stats] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true
             }
           },
-          orderBy: { createdAt: "asc" }
+          invoice: true,
+          items: {
+            include: {
+              product: {
+                include: {
+                  images: {
+                    orderBy: { order: "asc" }
+                  }
+                }
+              }
+            },
+            orderBy: { createdAt: "asc" }
+          }
+        },
+        orderBy: { createdAt: "desc" }
+      }),
+      prisma.order.count({ where }),
+      statsPromise
+    ]);
+    return {
+      orders,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      ...stats ? {
+        stats: {
+          total: stats[0],
+          pending: stats[1],
+          processing: stats[2],
+          delivered: stats[3],
+          active: stats[4],
+          revenue: Number(stats[5]._sum.subtotal || 0) + Number(stats[5]._sum.shippingCost || 0)
         }
-      },
-      orderBy: { createdAt: "desc" }
-    });
+      } : {}
+    };
   } catch (error) {
     console.error("getAllOrders error:", error);
-    return prisma.order.findMany({
-      include: {
-        invoice: true,
-        items: {
-          include: {
-            product: {
-              include: {
-                images: {
-                  orderBy: { order: "asc" }
-                }
-              }
-            }
-          },
-          orderBy: { createdAt: "asc" }
-        }
-      },
-      orderBy: { createdAt: "desc" }
-    });
+    throw error;
   }
 };
 var getOrderById = async (id) => {
@@ -3645,7 +3743,7 @@ var getOrders = async (req, res) => {
     if (!req.user?.id) {
       throw new AppError(401, "Please log in to view orders");
     }
-    const orders = req.user.role === "ADMIN" ? await orderService.getAllOrders() : await orderService.getOrdersForUser(req.user.id);
+    const orders = req.user.role === "ADMIN" ? (await orderService.getAllOrders({ limit: 100 })).orders : await orderService.getOrdersForUser(req.user.id);
     res.status(200).json({
       success: true,
       data: orders.map(serializeOrder)
@@ -3660,10 +3758,21 @@ var getOrders = async (req, res) => {
 };
 var getAllOrders2 = async (req, res) => {
   try {
-    const orders = await orderService.getAllOrders();
+    const requestedPage = Number.parseInt(req.query.page, 10);
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 100) : 30;
+    const result = await orderService.getAllOrders({
+      page,
+      limit,
+      ...typeof req.query.search === "string" ? { search: req.query.search } : {},
+      ...typeof req.query.status === "string" ? { status: req.query.status } : {}
+    });
     res.status(200).json({
       success: true,
-      data: orders.map(serializeOrder)
+      data: result.orders.map(serializeOrder),
+      meta: result.meta,
+      stats: result.stats
     });
   } catch (error) {
     res.status(error.statusCode || 500).json({
@@ -3707,6 +3816,7 @@ var updateOrderStatus2 = async (req, res) => {
       throw new AppError(400, "Order status is required");
     }
     const updatedOrder = await orderService.updateOrderStatus(id, status);
+    emitOrderStatusUpdated({ orderId: updatedOrder.id, status: updatedOrder.status });
     res.status(200).json({
       success: true,
       message: "Order status updated successfully",

@@ -131,6 +131,11 @@ const getCart = async (req: Request, res: Response) => {
                 include: {
                     images: true,
                     seo: true,
+                    category: {
+                        include: {
+                            parent: true,
+                        },
+                    },
                 },
             },
         },

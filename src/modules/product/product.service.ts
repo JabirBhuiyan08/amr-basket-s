@@ -86,7 +86,7 @@ const getAllProducts = async (query: ProductQueryDTO, includeBuyingPrice = false
       where,
       ...(includeBuyingPrice ? { omit: { buyingPrice: false } } : {}),
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: {
           orderBy: {
             order: 'asc',
@@ -134,6 +134,14 @@ const getAllProducts = async (query: ProductQueryDTO, includeBuyingPrice = false
     };
   });
 
+  const inventoryStats = includeBuyingPrice && page === 1
+    ? await Promise.all([
+        prisma.product.aggregate({ where, _sum: { stockQuantity: true } }),
+        prisma.product.count({ where: { ...where, stockQuantity: { gt: 0 } } }),
+        prisma.product.count({ where: { ...where, stockQuantity: 0 } }),
+      ])
+    : undefined;
+
   return {
     data: productsWithRating,
     meta: {
@@ -142,8 +150,16 @@ const getAllProducts = async (query: ProductQueryDTO, includeBuyingPrice = false
       limit,
       totalPages: Math.ceil(total / limit),
     },
+    ...(inventoryStats ? {
+      stats: {
+        total,
+        totalStock: inventoryStats[0]._sum.stockQuantity || 0,
+        inStock: inventoryStats[1],
+        outOfStock: inventoryStats[2],
+      },
+    } : {}),
   };
-}
+};
 
 const getAdminProducts = (query: ProductQueryDTO) => getAllProducts(query, true);
 
@@ -159,7 +175,7 @@ const getProductById = async (id: string) => {
         ],
       },
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: {
           orderBy: {
             order: 'asc',
@@ -462,7 +478,7 @@ const createProduct = async (data: CreateProductDTO) => {
     const product = await tx.product.create({
       data: createData,
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: true,
         seo: true,
       },
@@ -494,7 +510,7 @@ const createProduct = async (data: CreateProductDTO) => {
     return tx.product.findUnique({
       where: { id: product.id },
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: {
           orderBy: {
             order: 'asc',
@@ -571,7 +587,7 @@ const updateProduct = async (id: string, data: UpdateProductDTO) => {
       where: { id },
       data: updateData,
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: true,
         seo: true,
       },
@@ -638,7 +654,7 @@ const updateProduct = async (id: string, data: UpdateProductDTO) => {
     return tx.product.findUnique({
       where: { id },
       include: {
-        category: true,
+        category: { include: { parent: true } },
         images: {
           orderBy: {
             order: 'asc',
@@ -691,7 +707,7 @@ const updateStock = async (id: string, quantity: number, operation: 'add' | 'sub
     },
     include: {
       images: true,
-      category: true,
+      category: { include: { parent: true } },
     },
   });
 }
@@ -746,7 +762,7 @@ const addProductImage = async (productId: string, imageData: ProductImageDTO) =>
           order: 'asc',
         },
       },
-      category: true,
+      category: { include: { parent: true } },
       seo: true,
     },
   });
@@ -836,7 +852,7 @@ const updateProductSEO = async (id: string, seoData: ProductSEOUpdateDTO) => {
   return prisma.product.findUnique({
     where: { id },
     include: {
-      category: true,
+      category: { include: { parent: true } },
       images: true,
       seo: true,
     },

@@ -60,7 +60,7 @@ const getAdminProducts = async (req: Request, res: Response) => {
             minRating: req.query.minRating ? parseFloat(req.query.minRating as string) : undefined,
         };
         const result = await productService.getAdminProducts(query as ProductQueryDTO);
-        res.status(200).json({ success: true, data: result.data, meta: result.meta });
+        res.status(200).json({ success: true, data: result.data, meta: result.meta, stats: result.stats });
     } catch (error) {
         handleError(error, res);
     }

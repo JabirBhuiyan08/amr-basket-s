@@ -55,7 +55,7 @@ const getOrders = async (req: Request, res: Response) => {
         }
 
         const orders = req.user.role === "ADMIN"
-            ? await orderService.getAllOrders()
+            ? (await orderService.getAllOrders({ limit: 100 })).orders
             : await orderService.getOrdersForUser(req.user.id);
 
         res.status(200).json({
@@ -73,10 +73,23 @@ const getOrders = async (req: Request, res: Response) => {
 
 const getAllOrders = async (req: Request, res: Response) => {
     try {
-        const orders = await orderService.getAllOrders();
+        const requestedPage = Number.parseInt(req.query.page as string, 10);
+        const requestedLimit = Number.parseInt(req.query.limit as string, 10);
+        const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+        const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+            ? Math.min(requestedLimit, 100)
+            : 30;
+        const result = await orderService.getAllOrders({
+            page,
+            limit,
+            ...(typeof req.query.search === "string" ? { search: req.query.search } : {}),
+            ...(typeof req.query.status === "string" ? { status: req.query.status } : {}),
+        });
         res.status(200).json({
             success: true,
-            data: orders.map(serializeOrder),
+            data: result.orders.map(serializeOrder),
+            meta: result.meta,
+            stats: result.stats,
         });
     } catch (error: any) {
         res.status(error.statusCode || 500).json({

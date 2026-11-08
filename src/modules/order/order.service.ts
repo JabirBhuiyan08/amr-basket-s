@@ -24,55 +24,129 @@ const getOrdersForUser = async (userId: string) => {
     });
 };
 
-const getAllOrders = async () => {
+const getAllOrders = async ({
+    page = 1,
+    limit = 30,
+    search,
+    status,
+}: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+} = {}) => {
     try {
-        return await prisma.order.findMany({
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        phone: true,
+        const skip = (page - 1) * limit;
+        const where: any = {};
+        const normalizedSearch = search?.trim();
+
+        if (status && status !== "ALL") {
+            where.status = status;
+        }
+
+        if (normalizedSearch) {
+            where.OR = [
+                { id: { contains: normalizedSearch, mode: "insensitive" } },
+                { orderNumber: { contains: normalizedSearch, mode: "insensitive" } },
+                { shippingAddress: { path: ["fullName"], string_contains: normalizedSearch } },
+                { shippingAddress: { path: ["name"], string_contains: normalizedSearch } },
+                {
+                    user: {
+                        is: {
+                            OR: [
+                                { name: { contains: normalizedSearch, mode: "insensitive" } },
+                                { email: { contains: normalizedSearch, mode: "insensitive" } },
+                            ],
+                        },
                     },
                 },
-                invoice: true,
-                items: {
-                    include: {
-                        product: {
-                            include: {
-                                images: {
-                                    orderBy: { order: "asc" },
+                {
+                    items: {
+                        some: {
+                            OR: [
+                                { productId: { contains: normalizedSearch, mode: "insensitive" } },
+                                {
+                                    product: {
+                                        is: {
+                                            OR: [
+                                                { name: { contains: normalizedSearch, mode: "insensitive" } },
+                                                { sku: { contains: normalizedSearch, mode: "insensitive" } },
+                                            ],
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
+            ];
+        }
+
+        const statsPromise = page === 1
+            ? Promise.all([
+                prisma.order.count(),
+                prisma.order.count({ where: { status: "PENDING" } }),
+                prisma.order.count({ where: { status: { in: ["PROCESSING", "SHIPPED"] } } }),
+                prisma.order.count({ where: { status: "DELIVERED" } }),
+                prisma.order.count({ where: { status: { notIn: ["DELIVERED", "CANCELLED", "REFUNDED"] } } }),
+                prisma.order.aggregate({
+                    where: { paymentStatus: "PAID" },
+                    _sum: { subtotal: true, shippingCost: true },
+                }),
+            ])
+            : Promise.resolve(null);
+
+        const [orders, total, stats] = await Promise.all([
+            prisma.order.findMany({
+                where,
+                skip,
+                take: limit,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            phone: true,
+                        },
+                    },
+                    invoice: true,
+                    items: {
+                        include: {
+                            product: {
+                                include: {
+                                    images: {
+                                        orderBy: { order: "asc" },
+                                    },
                                 },
                             },
                         },
+                        orderBy: { createdAt: "asc" },
                     },
-                    orderBy: { createdAt: "asc" },
                 },
-            },
-            orderBy: { createdAt: "desc" },
-        });
+                orderBy: { createdAt: "desc" },
+            }),
+            prisma.order.count({ where }),
+            statsPromise,
+        ]);
+
+        return {
+            orders,
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+            ...(stats ? {
+                stats: {
+                    total: stats[0],
+                    pending: stats[1],
+                    processing: stats[2],
+                    delivered: stats[3],
+                    active: stats[4],
+                    revenue: Number(stats[5]._sum.subtotal || 0) + Number(stats[5]._sum.shippingCost || 0),
+                },
+            } : {}),
+        };
     } catch (error) {
         console.error("getAllOrders error:", error);
-        // Fallback: return orders without user relation if it fails
-        return prisma.order.findMany({
-            include: {
-                invoice: true,
-                items: {
-                    include: {
-                        product: {
-                            include: {
-                                images: {
-                                    orderBy: { order: "asc" },
-                                },
-                            },
-                        },
-                    },
-                    orderBy: { createdAt: "asc" },
-                },
-            },
-            orderBy: { createdAt: "desc" },
-        });
+        throw error;
     }
 };
 

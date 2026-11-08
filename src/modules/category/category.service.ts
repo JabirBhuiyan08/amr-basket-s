@@ -125,42 +125,50 @@ const getCategoryById = async (id: string) => {
 };
 
 const getCategoryBySlug = async (slug: string) => {
-  const category = await prisma.category.findUnique({
-    where: { slug },
-    include: {
-      parent: true,
-      children: {
-        include: {
-          _count: {
-            select: {
-              products: true,
-            },
+  const include = {
+    parent: true,
+    children: {
+      include: {
+        _count: {
+          select: {
+            products: true,
           },
-        },
-      },
-      products: {
-        take: 10,
-        include: {
-          images: {
-            where: { isPrimary: true },
-            take: 1,
-          },
-        },
-      },
-      _count: {
-        select: {
-          products: true,
-          children: true,
         },
       },
     },
+    products: {
+      take: 10,
+      include: {
+        images: {
+          where: { isPrimary: true },
+          take: 1,
+        },
+      },
+    },
+    _count: {
+      select: {
+        products: true,
+        children: true,
+      },
+    },
+  };
+  const category = await prisma.category.findUnique({ where: { slug }, include });
+  if (category) return category;
+
+  const legacyCategories = await prisma.category.findMany({
+    select: { id: true, name: true, slug: true },
   });
+  const legacyMatch = legacyCategories.find(
+    (candidate) => {
+      const savedSlug = candidate.slug || candidate.name;
+      const normalizedSlug = slugify(savedSlug, { lower: true, strict: true }) || candidate.id;
+      return normalizedSlug === slug;
+    },
+  );
 
-  if (!category) {
-    return null;
-  }
-
-  return category;
+  return legacyMatch
+    ? prisma.category.findUnique({ where: { id: legacyMatch.id }, include })
+    : null;
 };
 
 const getCategoryTree = async () => {
@@ -210,7 +218,7 @@ const createCategory = async (data: CreateCategoryDTO) => {
   const { name, description, slug, image, parentId, metaTitle, metaDescription, metaKeywords } = data;
 
   // Generate slug if not provided
-  const categorySlug = slug || slugify(name, { lower: true, strict: true });
+  const categorySlug = slugify(slug || name, { lower: true, strict: true });
 
   // Check if slug already exists
   if (categorySlug) {
@@ -293,10 +301,13 @@ const updateCategory = async (id: string, data: UpdateCategoryDTO) => {
   }
 
   // Check if slug already exists
-  if (slug) {
+  const categorySlug = slug === undefined
+    ? undefined
+    : slugify(slug || name || existingCategory.name, { lower: true, strict: true });
+  if (categorySlug) {
     const existing = await prisma.category.findFirst({
       where: {
-        slug,
+        slug: categorySlug,
         NOT: {
           id,
         },
@@ -316,7 +327,7 @@ const updateCategory = async (id: string, data: UpdateCategoryDTO) => {
     updateData.description = description;
   }
   if (slug !== undefined) {
-    updateData.slug = slug;
+    updateData.slug = categorySlug;
   }
   if (image !== undefined) {
     updateData.image = image;
