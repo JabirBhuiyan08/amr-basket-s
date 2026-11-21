@@ -2740,7 +2740,10 @@ var sendOrderConfirmationEmail = async (order) => {
     host: config2.host,
     port: config2.port,
     secure: config2.secure,
-    auth: config2.auth
+    auth: config2.auth,
+    connectionTimeout: 5e3,
+    greetingTimeout: 5e3,
+    socketTimeout: 1e4
   });
   await transporter2.sendMail({
     from: config2.from,
@@ -3025,13 +3028,14 @@ var checkout = async (req, res) => {
   } catch (err) {
     console.error("Failed to emit order created socket event:", err);
   }
-  try {
-    await sendNewOrderWhatsAppNotification();
-  } catch (err) {
-    console.error(`Failed to send WhatsApp notification for ${order.orderNumber}:`, err);
-  }
-  try {
-    await sendOrderConfirmationEmail({
+  res.status(201).json({
+    success: true,
+    message: "Order placed successfully",
+    data: order
+  });
+  void Promise.allSettled([
+    sendNewOrderWhatsAppNotification(),
+    sendOrderConfirmationEmail({
       customerEmail: req.user.email,
       customerName: req.user.name || "Customer",
       orderNumber: order.orderNumber,
@@ -3042,14 +3046,14 @@ var checkout = async (req, res) => {
         quantity: item.quantity,
         price: item.product.price.toString()
       }))
-    });
-  } catch (err) {
-    console.error(`Failed to send confirmation email for ${order.orderNumber}:`, err);
-  }
-  res.status(201).json({
-    success: true,
-    message: "Order placed successfully",
-    data: order
+    })
+  ]).then(([whatsAppResult, emailResult]) => {
+    if (whatsAppResult.status === "rejected") {
+      console.error(`Failed to send WhatsApp notification for ${order.orderNumber}:`, whatsAppResult.reason);
+    }
+    if (emailResult.status === "rejected") {
+      console.error(`Failed to send confirmation email for ${order.orderNumber}:`, emailResult.reason);
+    }
   });
 };
 var mergeCart = async (req, res) => {

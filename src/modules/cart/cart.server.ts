@@ -307,15 +307,17 @@ const checkout = async (req: Request, res: Response) => {
         console.error('Failed to emit order created socket event:', err);
     }
 
-    try {
-        await sendNewOrderWhatsAppNotification();
-    } catch (err) {
-        // The order has already committed. Do not make checkout fail if CallMeBot is unavailable.
-        console.error(`Failed to send WhatsApp notification for ${order.orderNumber}:`, err);
-    }
+    res.status(201).json({
+        success: true,
+        message: "Order placed successfully",
+        data: order,
+    });
 
-    try {
-        await sendOrderConfirmationEmail({
+    // Notifications must never delay a customer's checkout response. Start both
+    // external requests after responding, and keep their failures observable.
+    void Promise.allSettled([
+        sendNewOrderWhatsAppNotification(),
+        sendOrderConfirmationEmail({
             customerEmail: req.user.email,
             customerName: req.user.name || "Customer",
             orderNumber: order.orderNumber,
@@ -326,16 +328,15 @@ const checkout = async (req: Request, res: Response) => {
                 quantity: item.quantity,
                 price: item.product.price.toString(),
             })),
-        });
-    } catch (err) {
-        // The order has already committed. Do not make checkout fail if SMTP is unavailable.
-        console.error(`Failed to send confirmation email for ${order.orderNumber}:`, err);
-    }
+        }),
+    ]).then(([whatsAppResult, emailResult]) => {
+        if (whatsAppResult.status === "rejected") {
+            console.error(`Failed to send WhatsApp notification for ${order.orderNumber}:`, whatsAppResult.reason);
+        }
 
-    res.status(201).json({
-        success: true,
-        message: "Order placed successfully",
-        data: order,
+        if (emailResult.status === "rejected") {
+            console.error(`Failed to send confirmation email for ${order.orderNumber}:`, emailResult.reason);
+        }
     });
 };
 

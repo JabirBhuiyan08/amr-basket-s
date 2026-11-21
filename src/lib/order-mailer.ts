@@ -56,6 +56,9 @@ export const sendOrderConfirmationEmail = async (order: OrderConfirmation) => {
         port: config.port,
         secure: config.secure,
         auth: config.auth,
+        connectionTimeout: 5_000,
+        greetingTimeout: 5_000,
+        socketTimeout: 10_000,
     });
 
     await transporter.sendMail({
