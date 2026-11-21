@@ -3033,6 +3033,7 @@ var checkout = async (req, res) => {
     message: "Order placed successfully",
     data: order
   });
+  console.info(`Order ${order.orderNumber}: notification delivery started`);
   void Promise.allSettled([
     sendNewOrderWhatsAppNotification(),
     sendOrderConfirmationEmail({
@@ -3050,9 +3051,13 @@ var checkout = async (req, res) => {
   ]).then(([whatsAppResult, emailResult]) => {
     if (whatsAppResult.status === "rejected") {
       console.error(`Failed to send WhatsApp notification for ${order.orderNumber}:`, whatsAppResult.reason);
+    } else if (whatsAppResult.value.sent) {
+      console.info(`Order ${order.orderNumber}: WhatsApp notification sent`);
     }
     if (emailResult.status === "rejected") {
       console.error(`Failed to send confirmation email for ${order.orderNumber}:`, emailResult.reason);
+    } else if (emailResult.value.sent) {
+      console.info(`Order ${order.orderNumber}: confirmation email accepted by SMTP`);
     }
   });
 };

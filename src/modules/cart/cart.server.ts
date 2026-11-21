@@ -315,6 +315,7 @@ const checkout = async (req: Request, res: Response) => {
 
     // Notifications must never delay a customer's checkout response. Start both
     // external requests after responding, and keep their failures observable.
+    console.info(`Order ${order.orderNumber}: notification delivery started`);
     void Promise.allSettled([
         sendNewOrderWhatsAppNotification(),
         sendOrderConfirmationEmail({
@@ -332,10 +333,14 @@ const checkout = async (req: Request, res: Response) => {
     ]).then(([whatsAppResult, emailResult]) => {
         if (whatsAppResult.status === "rejected") {
             console.error(`Failed to send WhatsApp notification for ${order.orderNumber}:`, whatsAppResult.reason);
+        } else if (whatsAppResult.value.sent) {
+            console.info(`Order ${order.orderNumber}: WhatsApp notification sent`);
         }
 
         if (emailResult.status === "rejected") {
             console.error(`Failed to send confirmation email for ${order.orderNumber}:`, emailResult.reason);
+        } else if (emailResult.value.sent) {
+            console.info(`Order ${order.orderNumber}: confirmation email accepted by SMTP`);
         }
     });
 };
