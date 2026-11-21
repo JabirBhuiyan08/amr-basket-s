@@ -2706,6 +2706,82 @@ var reviewRouter = router3;
 // src/modules/cart/cart.router.ts
 import { Router as Router4 } from "express";
 
+// src/lib/order-mailer.ts
+import nodemailer2 from "nodemailer";
+var escapeHtml = (value) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+var money = (value) => `\u09F3${Number(value).toFixed(2)}`;
+var getMailConfig = () => {
+  const user = process.env.SMTP_USER || process.env.APP_USER;
+  const pass = process.env.SMTP_PASS || process.env.APP_PASS;
+  if (!user || !pass || user === "your_email@gmail.com" || pass === "your_app_password") {
+    return null;
+  }
+  const port = Number(process.env.SMTP_PORT || 587);
+  return {
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port,
+    secure: process.env.SMTP_SECURE === "true" || port === 465,
+    auth: { user, pass },
+    from: process.env.MAIL_FROM || `CommerceHub <${user}>`
+  };
+};
+var sendOrderConfirmationEmail = async (order) => {
+  const config2 = getMailConfig();
+  if (!config2) {
+    console.warn("Order confirmation email not sent: SMTP credentials are not configured.");
+    return { sent: false, reason: "not-configured" };
+  }
+  const itemRows = order.items.map((item) => `
+        <tr>
+            <td style="padding:8px 0">${escapeHtml(item.name)} \xD7 ${item.quantity}</td>
+            <td style="padding:8px 0;text-align:right">${money(Number(item.price) * item.quantity)}</td>
+        </tr>`).join("");
+  const transporter2 = nodemailer2.createTransport({
+    host: config2.host,
+    port: config2.port,
+    secure: config2.secure,
+    auth: config2.auth
+  });
+  await transporter2.sendMail({
+    from: config2.from,
+    to: order.customerEmail,
+    cc: process.env.ORDER_NOTIFICATION_EMAIL || void 0,
+    subject: `Order received: ${order.orderNumber}`,
+    text: `Hi ${order.customerName}, we received your order ${order.orderNumber}. Total: ${money(order.totalAmount)}.`,
+    html: `
+            <div style="font-family:Arial,sans-serif;color:#1f2937;max-width:600px;margin:auto">
+                <h2>Thanks for your order, ${escapeHtml(order.customerName)}!</h2>
+                <p>We've received order <strong>${escapeHtml(order.orderNumber)}</strong> and will notify you as it progresses.</p>
+                <table style="width:100%;border-collapse:collapse;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb">
+                    <tbody>${itemRows}</tbody>
+                </table>
+                <p style="text-align:right"><strong>Total: ${money(order.totalAmount)}</strong></p>
+                <p>Payment method: ${escapeHtml(order.paymentMethod || "COD")}</p>
+            </div>`
+  });
+  return { sent: true };
+};
+
+// src/lib/callmebot.ts
+var CALLMEBOT_ENDPOINT = "https://api.callmebot.com/whatsapp.php";
+var sendNewOrderWhatsAppNotification = async () => {
+  const phone = process.env.CALLMEBOT_PHONE;
+  const apiKey = process.env.CALLMEBOT_API_KEY;
+  if (!phone || !apiKey) {
+    console.warn("WhatsApp order notification not sent: CallMeBot is not configured.");
+    return { sent: false, reason: "not-configured" };
+  }
+  const url = new URL(CALLMEBOT_ENDPOINT);
+  url.searchParams.set("phone", phone);
+  url.searchParams.set("text", "You have new Order-check the admin panel.");
+  url.searchParams.set("apikey", apiKey);
+  const response = await fetch(url, { signal: AbortSignal.timeout(1e4) });
+  if (!response.ok) {
+    throw new Error(`CallMeBot responded with HTTP ${response.status}`);
+  }
+  return { sent: true };
+};
+
 // src/modules/cart/cart.server.ts
 var getCartIdentifier = (req) => {
   if (req.user?.id) {
@@ -2948,6 +3024,27 @@ var checkout = async (req, res) => {
     });
   } catch (err) {
     console.error("Failed to emit order created socket event:", err);
+  }
+  try {
+    await sendNewOrderWhatsAppNotification();
+  } catch (err) {
+    console.error(`Failed to send WhatsApp notification for ${order.orderNumber}:`, err);
+  }
+  try {
+    await sendOrderConfirmationEmail({
+      customerEmail: req.user.email,
+      customerName: req.user.name || "Customer",
+      orderNumber: order.orderNumber,
+      totalAmount: order.totalAmount.toString(),
+      paymentMethod: order.paymentMethod,
+      items: cartItems.map((item) => ({
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.product.price.toString()
+      }))
+    });
+  } catch (err) {
+    console.error(`Failed to send confirmation email for ${order.orderNumber}:`, err);
   }
   res.status(201).json({
     success: true,

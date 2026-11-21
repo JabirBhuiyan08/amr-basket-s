@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/app-error";
 import { getIO } from "../../socket/socketManager";
+import { sendOrderConfirmationEmail } from "../../lib/order-mailer";
+import { sendNewOrderWhatsAppNotification } from "../../lib/callmebot";
 
 const getCartIdentifier = (req: Request) => {
     if (req.user?.id) {
@@ -303,6 +305,31 @@ const checkout = async (req: Request, res: Response) => {
         });
     } catch (err) {
         console.error('Failed to emit order created socket event:', err);
+    }
+
+    try {
+        await sendNewOrderWhatsAppNotification();
+    } catch (err) {
+        // The order has already committed. Do not make checkout fail if CallMeBot is unavailable.
+        console.error(`Failed to send WhatsApp notification for ${order.orderNumber}:`, err);
+    }
+
+    try {
+        await sendOrderConfirmationEmail({
+            customerEmail: req.user.email,
+            customerName: req.user.name || "Customer",
+            orderNumber: order.orderNumber,
+            totalAmount: order.totalAmount.toString(),
+            paymentMethod: order.paymentMethod,
+            items: cartItems.map((item) => ({
+                name: item.product.name,
+                quantity: item.quantity,
+                price: item.product.price.toString(),
+            })),
+        });
+    } catch (err) {
+        // The order has already committed. Do not make checkout fail if SMTP is unavailable.
+        console.error(`Failed to send confirmation email for ${order.orderNumber}:`, err);
     }
 
     res.status(201).json({
