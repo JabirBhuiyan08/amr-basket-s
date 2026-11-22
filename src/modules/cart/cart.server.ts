@@ -30,6 +30,14 @@ const normalizeQuantity = (value: unknown) => {
     return parsed;
 };
 
+const getEffectiveProductPrice = (product: { price: unknown; discountPrice?: unknown }) => {
+    const regularPrice = Number(product.price);
+    const discountPrice = product.discountPrice == null ? null : Number(product.discountPrice);
+    return discountPrice !== null && Number.isFinite(discountPrice) && discountPrice > 0 && discountPrice < regularPrice
+        ? discountPrice
+        : regularPrice;
+};
+
 const normalizeAddress = (address: unknown) => {
     if (!address || typeof address !== "object") {
         throw new AppError(400, "Shipping address is required");
@@ -79,13 +87,14 @@ const addToCart = async (req: Request, res: Response) => {
         select: {
             id: true,
             name: true,
+        isPublished: true,
             price: true,
             inStock: true,
             stockQuantity: true,
         },
     });
 
-    if (!product) {
+    if (!product || !product.isPublished) {
         throw new AppError(404, "Product not found");
     }
 
@@ -241,8 +250,12 @@ const checkout = async (req: Request, res: Response) => {
         throw new AppError(400, "Your cart is empty");
     }
 
+    if (cartItems.some((item) => !item.product.isPublished)) {
+        throw new AppError(400, "Your cart contains a product that is no longer published. Remove it before checkout.");
+    }
+
     const subtotal = cartItems.reduce((total, item) => {
-        const price = Number(item.product.price);
+        const price = getEffectiveProductPrice(item.product);
         return total + price * item.quantity;
     }, 0);
 
@@ -270,8 +283,8 @@ const checkout = async (req: Request, res: Response) => {
                 orderId: createdOrder.id,
                 productId: item.productId,
                 quantity: item.quantity,
-                price: item.product.price.toString(),
-                total: (Number(item.product.price) * item.quantity).toFixed(2),
+                price: getEffectiveProductPrice(item.product).toFixed(2),
+                total: (getEffectiveProductPrice(item.product) * item.quantity).toFixed(2),
             })),
         });
 
@@ -292,7 +305,7 @@ const checkout = async (req: Request, res: Response) => {
         const notificationItems = cartItems.map((item) => ({
             name: item.product.name,
             quantity: item.quantity,
-            price: item.product.price.toString(),
+            price: getEffectiveProductPrice(item.product).toFixed(2),
         }));
 
         await tx.notificationOutbox.createMany({

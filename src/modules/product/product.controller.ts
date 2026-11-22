@@ -137,15 +137,10 @@ const createProduct = async (req: Request, res: Response) => {
         const data: CreateProductDTO = req.body;
         validateBuyingPrice(data?.buyingPrice);
 
-        // Validate required fields
-        if (!data || !data.name) {
-            console.log('Validation failed: name is missing');
-            throw new AppError(400, 'Name and price are required');
-        }
-
-        if (data.price === undefined || data.price === null) {
-            console.log('Validation failed: price is missing');
-            throw new AppError(400, 'Name and price are required');
+        if (data?.isPublished !== false) {
+            if (!data?.name?.trim() || data.price === undefined || data.price === null || data.price <= 0) {
+                throw new AppError(400, 'Add a product name and price greater than zero before publishing');
+            }
         }
 
         const product = await productService.createProduct(data);
@@ -168,9 +163,17 @@ const updateProduct = async (req: Request, res: Response) => {
         validateBuyingPrice(data?.buyingPrice);
 
         // Check if product exists
-        const existingProduct = await productService.getProductById(id as string);
+        const existingProduct = await productService.getAdminProductById(id as string);
         if (!existingProduct) {
             throw new AppError(404, 'Product not found');
+        }
+
+        if (data.isPublished === true) {
+            const name = data.name ?? existingProduct.name;
+            const price = data.price ?? Number(existingProduct.price);
+            if (!name.trim() || Number(price) <= 0) {
+                throw new AppError(400, 'Add a product name and price greater than zero before publishing');
+            }
         }
 
         const product = await productService.updateProduct(id as string, data);

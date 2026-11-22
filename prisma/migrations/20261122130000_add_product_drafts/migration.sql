@@ -1,0 +1,8 @@
+ALTER TABLE "products"
+ADD COLUMN "isPublished" BOOLEAN NOT NULL DEFAULT true;
+
+ALTER TABLE "products"
+ALTER COLUMN "name" SET DEFAULT '';
+
+ALTER TABLE "products"
+ALTER COLUMN "price" SET DEFAULT 0;

@@ -48,6 +48,10 @@ const getAllProducts = async (query: ProductQueryDTO, includeBuyingPrice = false
   const skip = (page - 1) * limit;
   const where: Prisma.ProductWhereInput = {};
 
+  if (!includeBuyingPrice) {
+    where.isPublished = true;
+  }
+
   if (search) {
     where.OR = [
       { name: { contains: search, mode: 'insensitive' } },
@@ -165,7 +169,7 @@ const getAdminProducts = (query: ProductQueryDTO) => getAllProducts(query, true)
 
 // Public product URLs use the SEO slug. Keep ID lookup as a fallback so
 // existing links and internal callers continue to work.
-const getProductById = async (id: string) => {
+const getProductById = async (id: string, includeDrafts = false) => {
   try {
     const product = await prisma.product.findFirst({
       where: {
@@ -173,6 +177,7 @@ const getProductById = async (id: string) => {
           { id },
           { seo: { slug: id } },
         ],
+        ...(includeDrafts ? {} : { isPublished: true }),
       },
       include: {
         category: { include: { parent: true } },
@@ -228,6 +233,8 @@ const getProductById = async (id: string) => {
   }
 };
 
+const getAdminProductById = (id: string) => getProductById(id, true);
+
 const getProductsByCategory = async (categoryId: string, page: number = 1, limit: number = 10) => {
   const skip = (page - 1) * limit;
 
@@ -248,6 +255,7 @@ const getProductsByCategory = async (categoryId: string, page: number = 1, limit
         categoryId: {
           in: categoryIds,
         },
+        isPublished: true,
       },
       include: {
         images: {
@@ -275,6 +283,7 @@ const getProductsByCategory = async (categoryId: string, page: number = 1, limit
         categoryId: {
           in: categoryIds,
         },
+        isPublished: true,
       },
     }),
   ]);
@@ -307,6 +316,7 @@ const searchProducts = async (query: string, page: number = 1, limit: number = 1
   const skip = (page - 1) * limit;
 
   const searchWhere: Prisma.ProductWhereInput = {
+    isPublished: true,
     OR: [
       { name: { contains: query, mode: 'insensitive' } },
       { description: { contains: query, mode: 'insensitive' } },
@@ -372,6 +382,8 @@ const searchProducts = async (query: string, page: number = 1, limit: number = 1
 
 const createProduct = async (data: CreateProductDTO) => {
   const { seo, images, categoryId, sku, ...productData } = data;
+  const productName = productData.name ?? '';
+  const productPrice = productData.price ?? 0;
 
   // Validate SKU if provided
   if (sku) {
@@ -390,7 +402,7 @@ const createProduct = async (data: CreateProductDTO) => {
     }
   }
 
-  const slug = seo?.slug || slugify(productData.name, { lower: true, strict: true });
+  const slug = seo?.slug || slugify(productName, { lower: true, strict: true });
 
   if (seo?.slug) {
     const existing = await prisma.productSEO.findUnique({
@@ -403,14 +415,15 @@ const createProduct = async (data: CreateProductDTO) => {
 
   let discountPrice: number | null = null;
   if (productData.discount && productData.discount > 0) {
-    discountPrice = Number(productData.price) * (1 - productData.discount / 100);
+    discountPrice = Number(productPrice) * (1 - productData.discount / 100);
   }
 
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // Build create data
     const createData: Prisma.ProductCreateInput = {
-      name: productData.name,
-      price: productData.price,
+      name: productName,
+      price: productPrice,
+      isPublished: data.isPublished ?? true,
     };
 
     // Add SKU if provided
@@ -455,7 +468,7 @@ const createProduct = async (data: CreateProductDTO) => {
         connect: { id: categoryId }
       };
     }
-    if (seo) {
+    if (seo && slug) {
       const seoCreateData: Prisma.ProductSEOUncheckedCreateWithoutProductInput = {
         slug,
       };
@@ -564,6 +577,7 @@ const updateProduct = async (id: string, data: UpdateProductDTO) => {
 
     if (productData.name !== undefined) updateData.name = productData.name;
     if (productData.price !== undefined) updateData.price = productData.price;
+    if (productData.isPublished !== undefined) updateData.isPublished = productData.isPublished;
     if (productData.buyingPrice !== undefined) updateData.buyingPrice = productData.buyingPrice;
     if (productData.description !== undefined) updateData.description = productData.description;
     if (productData.discount !== undefined) updateData.discount = productData.discount;
@@ -625,7 +639,7 @@ const updateProduct = async (id: string, data: UpdateProductDTO) => {
     if (seo) {
       const slug = seo.slug || existingProduct.seo?.slug || existingProduct.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-      if (existingProduct.seo) {
+      if (slug && existingProduct.seo) {
         const seoUpdateData: any = { slug };
         if (seo.metaTitle !== undefined) seoUpdateData.metaTitle = seo.metaTitle;
         if (seo.metaDescription !== undefined) seoUpdateData.metaDescription = seo.metaDescription;
@@ -635,7 +649,7 @@ const updateProduct = async (id: string, data: UpdateProductDTO) => {
           where: { id: existingProduct.seo.id },
           data: seoUpdateData,
         });
-      } else {
+      } else if (slug) {
         const seoCreateData: any = {
           productId: id,
           slug,
@@ -865,6 +879,7 @@ export const productService = {
   getAllProducts,
   getAdminProducts,
   getProductById,
+  getAdminProductById,
   getProductsByCategory,
   searchProducts,
   createProduct,

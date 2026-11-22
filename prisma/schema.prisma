@@ -17,9 +17,10 @@ datasource db {
 model Product {
   id              String         @id @default(cuid())
   sku             String?        @unique
-  name            String
+  name            String         @default("")
   description     String?
-  price           Decimal        @db.Decimal(10, 2)
+  price           Decimal        @default(0) @db.Decimal(10, 2)
+  isPublished     Boolean        @default(true)
   buyingPrice     Decimal?       @db.Decimal(10, 2)
   discount        Decimal?       @db.Decimal(5, 2)
   discountPrice   Decimal?       @db.Decimal(10, 2)

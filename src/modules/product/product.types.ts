@@ -1,7 +1,8 @@
 export interface CreateProductDTO {
-  name: string;
+  name?: string;
   description?: string;
-  price: number;
+  price?: number;
+  isPublished?: boolean;
   buyingPrice?: number | null;
   discount?: number;
   inStock?: boolean;
@@ -29,6 +30,7 @@ export interface UpdateProductDTO {
   name?: string;
   description?: string;
   price?: number;
+  isPublished?: boolean;
   buyingPrice?: number | null;
   discount?: number;
   inStock?: boolean;

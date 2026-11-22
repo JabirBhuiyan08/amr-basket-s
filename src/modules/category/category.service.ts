@@ -402,6 +402,7 @@ const getCategoryProducts = async (categoryId: string, page: number = 1, limit: 
     prisma.product.findMany({
       where: {
         categoryId,
+        isPublished: true,
       },
       include: {
         images: {
@@ -429,7 +430,7 @@ const getCategoryProducts = async (categoryId: string, page: number = 1, limit: 
       },
     }),
     prisma.product.count({
-      where: { categoryId },
+      where: { categoryId, isPublished: true },
     }),
   ]);
 
