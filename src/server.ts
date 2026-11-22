@@ -1,6 +1,7 @@
 import app from "./app";
 import { prisma } from "./lib/prisma";
 import { initSocket } from "./socket/socketManager";
+import { startNotificationOutboxWorker } from "./lib/notification-outbox";
 
 const PORT = process.env.PORT || 3000;
 
@@ -16,6 +17,7 @@ async function main() {
         // Attach Socket.io to the underlying HTTP server
         initSocket(server);
         console.log("Socket.io attached");
+        startNotificationOutboxWorker();
         
     } catch (error) {
         console.log(error);

@@ -1,4 +1,4 @@
-type NewOrderTelegramNotification = {
+export type NewOrderTelegramNotification = {
     orderNumber: string;
     customerName: string;
     totalAmount: string;

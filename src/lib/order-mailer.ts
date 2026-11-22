@@ -1,12 +1,12 @@
 import nodemailer from "nodemailer";
 
-type OrderEmailItem = {
+export type OrderEmailItem = {
     name: string;
     quantity: number;
     price: number | string;
 };
 
-type OrderConfirmation = {
+export type OrderConfirmation = {
     customerEmail: string;
     customerName: string;
     orderNumber: string;

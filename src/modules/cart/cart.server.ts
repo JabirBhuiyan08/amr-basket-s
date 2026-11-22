@@ -2,8 +2,7 @@ import { Request, Response } from "express";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/app-error";
 import { getIO } from "../../socket/socketManager";
-import { sendOrderConfirmationEmail } from "../../lib/order-mailer";
-import { sendNewOrderTelegramNotification } from "../../lib/telegram";
+import { wakeNotificationOutbox } from "../../lib/notification-outbox";
 
 const getCartIdentifier = (req: Request) => {
     if (req.user?.id) {
@@ -290,6 +289,42 @@ const checkout = async (req: Request, res: Response) => {
             where: { userId: req.user!.id },
         });
 
+        const notificationItems = cartItems.map((item) => ({
+            name: item.product.name,
+            quantity: item.quantity,
+            price: item.product.price.toString(),
+        }));
+
+        await tx.notificationOutbox.createMany({
+            data: [
+                {
+                    orderId: createdOrder.id,
+                    orderNumber: createdOrder.orderNumber,
+                    channel: "TELEGRAM",
+                    payload: {
+                        orderNumber: createdOrder.orderNumber,
+                        customerName: req.user!.name || "Customer",
+                        totalAmount: createdOrder.totalAmount.toString(),
+                        paymentMethod: createdOrder.paymentMethod || "COD",
+                        items: notificationItems,
+                    },
+                },
+                {
+                    orderId: createdOrder.id,
+                    orderNumber: createdOrder.orderNumber,
+                    channel: "EMAIL",
+                    payload: {
+                        customerEmail: req.user!.email,
+                        customerName: req.user!.name || "Customer",
+                        orderNumber: createdOrder.orderNumber,
+                        totalAmount: createdOrder.totalAmount.toString(),
+                        paymentMethod: createdOrder.paymentMethod || "COD",
+                        items: notificationItems,
+                    },
+                },
+            ],
+        });
+
         return createdOrder;
     });
 
@@ -307,52 +342,14 @@ const checkout = async (req: Request, res: Response) => {
         console.error('Failed to emit order created socket event:', err);
     }
 
+    wakeNotificationOutbox();
+
     res.status(201).json({
         success: true,
         message: "Order placed successfully",
         data: order,
     });
 
-    // Notifications must never delay a customer's checkout response. Start both
-    // external requests after responding, and keep their failures observable.
-    console.info(`Order ${order.orderNumber}: notification delivery started`);
-    void Promise.allSettled([
-        sendNewOrderTelegramNotification({
-            orderNumber: order.orderNumber,
-            customerName: req.user.name || "Customer",
-            totalAmount: order.totalAmount.toString(),
-            paymentMethod: order.paymentMethod,
-            items: cartItems.map((item) => ({
-                name: item.product.name,
-                quantity: item.quantity,
-                price: item.product.price.toString(),
-            })),
-        }),
-        sendOrderConfirmationEmail({
-            customerEmail: req.user.email,
-            customerName: req.user.name || "Customer",
-            orderNumber: order.orderNumber,
-            totalAmount: order.totalAmount.toString(),
-            paymentMethod: order.paymentMethod,
-            items: cartItems.map((item) => ({
-                name: item.product.name,
-                quantity: item.quantity,
-                price: item.product.price.toString(),
-            })),
-        }),
-    ]).then(([telegramResult, emailResult]) => {
-        if (telegramResult.status === "rejected") {
-            console.error(`Failed to send Telegram notification for ${order.orderNumber}:`, telegramResult.reason);
-        } else if (telegramResult.value.sent) {
-            console.info(`Order ${order.orderNumber}: Telegram notification sent`);
-        }
-
-        if (emailResult.status === "rejected") {
-            console.error(`Failed to send confirmation email for ${order.orderNumber}:`, emailResult.reason);
-        } else if (emailResult.value.sent) {
-            console.info(`Order ${order.orderNumber}: confirmation email accepted by SMTP`);
-        }
-    });
 };
 
 const mergeCart = async (req: Request, res: Response) => {
