@@ -13,7 +13,6 @@
     "dev": "npx tsx watch src/server.ts",
     "build": "npx prisma generate && tsup",
     "prisma:deploy": "prisma migrate deploy",
-    "prestart": "npm run build && npm run prisma:deploy",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
