@@ -3,7 +3,7 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/app-error";
 import { getIO } from "../../socket/socketManager";
 import { sendOrderConfirmationEmail } from "../../lib/order-mailer";
-import { sendNewOrderWhatsAppNotification } from "../../lib/callmebot";
+import { sendNewOrderTelegramNotification } from "../../lib/telegram";
 
 const getCartIdentifier = (req: Request) => {
     if (req.user?.id) {
@@ -317,7 +317,17 @@ const checkout = async (req: Request, res: Response) => {
     // external requests after responding, and keep their failures observable.
     console.info(`Order ${order.orderNumber}: notification delivery started`);
     void Promise.allSettled([
-        sendNewOrderWhatsAppNotification(),
+        sendNewOrderTelegramNotification({
+            orderNumber: order.orderNumber,
+            customerName: req.user.name || "Customer",
+            totalAmount: order.totalAmount.toString(),
+            paymentMethod: order.paymentMethod,
+            items: cartItems.map((item) => ({
+                name: item.product.name,
+                quantity: item.quantity,
+                price: item.product.price.toString(),
+            })),
+        }),
         sendOrderConfirmationEmail({
             customerEmail: req.user.email,
             customerName: req.user.name || "Customer",
@@ -330,11 +340,11 @@ const checkout = async (req: Request, res: Response) => {
                 price: item.product.price.toString(),
             })),
         }),
-    ]).then(([whatsAppResult, emailResult]) => {
-        if (whatsAppResult.status === "rejected") {
-            console.error(`Failed to send WhatsApp notification for ${order.orderNumber}:`, whatsAppResult.reason);
-        } else if (whatsAppResult.value.sent) {
-            console.info(`Order ${order.orderNumber}: WhatsApp notification sent`);
+    ]).then(([telegramResult, emailResult]) => {
+        if (telegramResult.status === "rejected") {
+            console.error(`Failed to send Telegram notification for ${order.orderNumber}:`, telegramResult.reason);
+        } else if (telegramResult.value.sent) {
+            console.info(`Order ${order.orderNumber}: Telegram notification sent`);
         }
 
         if (emailResult.status === "rejected") {
